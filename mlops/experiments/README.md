@@ -100,3 +100,13 @@ python -m unittest discover -s tests -t .
 - A resposta da API ainda não informa quantas chamadas ao LLM fez. O executor lê o campo `llm_calls` se ele existir.
 
 **Resultados:** pastas `results/mock_*` (backend em mock) não são versionadas. Só resultados oficiais (`run.json` com `"official": true`) entram no repositório.
+
+### 3.1 Benchmark de extração (`benchmark/extraction.py`)
+
+> **Status:** ferramenta `IMPLEMENTADO`; protocolo das fotos `PROPOSTO` em 14/11/2026; fotos e gabarito `PENDENTE`.
+
+Compara campo a campo o que cada motor de OCR leu com o gabarito digitado das fotos. Calcula o acerto (meta ≥ 85%), o recall da linha "ALÉRGICOS" (destacando falsos negativos) e o tempo mediano por foto. Protocolo das fotos, regras de digitação e formato que o pipeline de OCR deve entregar: [testset/protocolo_fotos.md](testset/protocolo_fotos.md).
+
+```bash
+python -m benchmark.extraction testset/gabarito_fotos.csv results/<experimento>/leituras.csv
+```
