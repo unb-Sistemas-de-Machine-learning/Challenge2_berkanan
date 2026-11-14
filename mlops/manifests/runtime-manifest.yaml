@@ -39,7 +39,7 @@ prompts:
 knowledge_base_rag:
   vector_store: "chromadb"
   index_version: "base_conhecimento_v1"
-  index_status: "not_configured (aguardando ingestao por R4)"
+  index_status: "ready_for_ingestion (scripts/ingest_chroma.py e backend/chroma_client.py implementados)"
   embedding_provider: "huggingface"
   embedding_model_name: "not_configured (mesmo modelo do Desafio 1, pendente de integracao no codigo)"
   chunking_parameters:
@@ -55,7 +55,7 @@ knowledge_base_rag:
 structured_database:
   engine: "postgresql"
   engine_version: "16.4"
-  schema_migrations_status: "not_configured_in_repo (migracoes 001-004 revisadas por R4, aguardando inclusao no repositorio)"
+  schema_migrations_status: "configured_in_repo (migracoes 001-004 e seeds integradas em migrations/ e compose.yaml)"
   tables_expected:
     - "fontes_documentos"
     - "taco_alimentos"
