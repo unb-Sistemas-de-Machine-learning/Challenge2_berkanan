@@ -12,15 +12,15 @@ Este é o ponto de entrada global do projeto, compartilhado por **todos os integ
 
 Antes de propor ou implementar mudanças, consulte os documentos canônicos nesta ordem:
 
-1. **Orientação global de contexto:** [docs/context/AGENTS.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/AGENTS.md)
-2. **Índice consolidado do projeto:** [docs/context/INDEX.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/INDEX.md)
-3. **Manifesto de documentos e ADRs:** [docs/context/MANIFEST.yaml](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/MANIFEST.yaml)
+1. **Orientação global de contexto:** [docs/context/AGENTS.md](docs/context/AGENTS.md)
+2. **Índice consolidado do projeto:** [docs/context/INDEX.md](docs/context/INDEX.md)
+3. **Manifesto de documentos e ADRs:** [docs/context/MANIFEST.yaml](docs/context/MANIFEST.yaml)
 4. **Fontes documentais originais (imutáveis):**
-   - [docs/context/sources/contextoCLAUDEV2.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/sources/contextoCLAUDEV2.md)
-   - [docs/context/sources/adr.pdf](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/sources/adr.pdf) (ADR-001 a ADR-008)
-   - [docs/context/sources/5_perguntas_escopo_essential_question.pdf](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/sources/5_perguntas_escopo_essential_question.pdf)
-5. **Matriz de responsabilidades e handoff (R1–R7):** [docs/handoff/RESPONSIBILITIES.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/handoff/RESPONSIBILITIES.md)
-6. **Baseline do backend e manifesto MLOps:** [docs/baselines/backend-whatsapp-v0.1.0.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/baselines/backend-whatsapp-v0.1.0.md) e [mlops/manifests/runtime-manifest.yaml](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/mlops/manifests/runtime-manifest.yaml)
+   - [docs/context/sources/contextoCLAUDEV2.md](docs/context/sources/contextoCLAUDEV2.md)
+   - [docs/context/sources/adr.pdf](docs/context/sources/adr.pdf) (ADR-001 a ADR-008)
+   - [docs/context/sources/5_perguntas_escopo_essential_question.pdf](docs/context/sources/5_perguntas_escopo_essential_question.pdf)
+5. **Matriz de responsabilidades e handoff (R1–R7):** [docs/handoff/RESPONSIBILITIES.md](docs/handoff/RESPONSIBILITIES.md)
+6. **Baseline do backend e manifesto MLOps:** [docs/baselines/backend-whatsapp-v0.1.0.md](docs/baselines/backend-whatsapp-v0.1.0.md) e [mlops/manifests/runtime-manifest.yaml](mlops/manifests/runtime-manifest.yaml)
 
 ---
 
@@ -62,7 +62,7 @@ O agente deve identificar qual papel ou entrega está sendo trabalhado na tarefa
 | **R5 Engenheiro de Software** | **Carlos** | Evolução da API FastAPI (`backend/main.py`), agente nutricional conectado ao RAG/PostgreSQL, verificador com LLM (Config. C), integração do OCR à API e aplicação web Mobile First em `frontend/` |
 | **R6 DevOps + R7 MLOps** | **Caio Soares de Andrade** | Estrutura do repositório, preservação de baselines (`snapshots/`), Docker/Docker Compose, CI/CD (`.github/workflows/`), versionamento de modelos/prompts/índices (`mlops/`) e infraestrutura de monitoramento |
 
-- Ao alterar contratos compartilhados (`backend/schemas.py`, `backend/state.py`, variáveis de ambiente, esquema SQL ou metadados do ChromaDB), verifique o impacto nos demais papéis em [docs/handoff/RESPONSIBILITIES.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/handoff/RESPONSIBILITIES.md).
+- Ao alterar contratos compartilhados (`backend/schemas.py`, `backend/state.py`, variáveis de ambiente, esquema SQL ou metadados do ChromaDB), verifique o impacto nos demais papéis em [docs/handoff/RESPONSIBILITIES.md](docs/handoff/RESPONSIBILITIES.md).
 
 ---
 
