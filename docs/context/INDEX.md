@@ -1,10 +1,12 @@
 # Índice Canônico de Contexto — Challenge 2 Berkanan
 
+**Orientações compartilhadas:** [guia global para agentes e colaboradores](AGENTS.md) e [AGENTS.md da raiz](../../AGENTS.md). Contextos pessoais são opcionais e ficam em `.local/`, fora do versionamento.
+
 > **Data de referência documental:** 14/11/2026  
 > **Disciplina:** Tópicos Especiais em Engenharia de Software: Sistemas de Machine Learning (UnB — 2026/02)  
 > **Entrega final prevista:** 07/12/2026  
 
-Este documento consolida a identidade do projeto, as decisões arquiteturais, o estado real do desenvolvimento e as pendências da **Equipe Berkanan**, diferenciando rigorosamente entre o que está **APROVADO**, **PENDENTE**, **PROPOSTO** e **IMPLEMENTADO** no código.
+Este documento consolida a identidade do projeto, as decisões arquiteturais, o estado real do desenvolvimento e as pendências de todas as frentes da **Equipe Berkanan (R1 a R7)**, diferenciando rigorosamente entre o que está **APROVADO**, **PENDENTE**, **PROPOSTO**, **SIMULADO** e **IMPLEMENTADO** no código.
 
 ---
 
@@ -55,7 +57,7 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
 | **Verificação de Respostas** | Benchmark entre Config. A (sem verificador), Config. B (regras) e Config. C (LLM; fica se ≥ +5 pts fidelidade e ≤ +3 s latência sobre B) | `EM AVALIAÇÃO` / Regra `APROVADA` (ADR-005) | `IMPLEMENTADO` flag `enable_verifier` com lógica simulada |
 | **Versionamento MLOps (C6/C7 adaptados)** | Git/GitHub para código, prompts, manifestos de execução e versões de índice (`base_conhecimento_v1`...) | `PROPOSTO PARA VALIDAÇÃO` (ADR-006) | `IMPLEMENTADO` estrutura inicial em `mlops/` e `snapshots/` |
 | **CI/CD (C1)** | GitHub Actions (build, sintaxe, smoke tests, Docker) | `APROVADO` (ADR-007) | `IMPLEMENTADO` em `.github/workflows/ci.yml` |
-| **Monitoramento (C9)** | Logs + tabela `metricas_requisicao` no PostgreSQL (1 linha/requisição); Grafana opcional na sem. 5; **sem Prometheus** | `APROVADO` (ADR-008) | `PROPOSTO` documentação/queries em `mlops/monitoring/`; integração `PENDENTE` |
+| **Monitoramento (C9)** | Logs + tabela `metricas_requisicao` no PostgreSQL (1 linha/requisição); Grafana opcional na sem. 5; **sem Prometheus** | `APROVADO` (ADR-008) | `PROPOSTO` documentação em `mlops/monitoring/`; integração `PENDENTE` |
 
 ### 1.5 Papéis e Responsáveis (`APROVADO` em 11/11/2026)
 
@@ -110,11 +112,11 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
 ### 2.1 Implementações Verificadas no Código (`IMPLEMENTADO`)
 - **Esqueleto FastAPI (`backend/main.py`):** Endpoint `POST /api/analyze` funcional, contrato Pydantic validado (`backend/schemas.py`), medição de `response_time_ms` e flag `enable_verifier`.
 - **Esqueleto de Grafo (`backend/graph.py`, `backend/state.py`):** Workflow LangGraph compilado com transição condicional para o nó `verifier`.
-- **Infraestrutura DevOps e MLOps (R6/R7):**
+- **Infraestrutura do Repositório, Containers, CI e MLOps:**
   - Estrutura de diretórios padronizada do repositório;
   - Preservação auditável do baseline `backend-whatsapp-v0.1.0` com `SHA256SUMS`, `manifest.yaml` e `scripts/verify_baseline.py`;
   - Containerização do backend (`backend/Dockerfile`) e orquestração multi-serviço (`compose.yaml` com `backend`, `postgres` e `chromadb`);
-  - Pipeline de Integração Contínua (`.github/workflows/ci.yml`) e script de smoke test rigoroso (`scripts/smoke_backend.sh`);
+  - Pipeline de Integração Contínua (`.github/workflows/ci.yml`) e script de smoke test (`scripts/smoke_backend.sh`);
   - Estrutura inicial MLOps (`mlops/manifests/runtime-manifest.yaml`, diretórios e convenções de prompts, experimentos e monitoramento).
 
 ### 2.2 Implementações Simuladas no Código (`SIMULADO`)
@@ -138,28 +140,42 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
 - Definição do modelo de linguagem alternativo caso a cota gratuita do Gemini se esgote.
 - Deliberação do grupo sobre ativar ou não as checagens SQL adicionais sugeridas por R4 (além de `açúcares totais <= carboidratos`).
 
-### 2.5 Dependências Externas (Fora de R6/R7)
-- **Incorporação das migrações SQL e carga de dados (R4 — Davi):** Embora `contextoCLAUDEV2.md` mencione que o esquema SQL (`001_fontes.sql` a `004_metricas.sql`) foi revisado em 14/11 na pasta externa `desafio2/R4_davi_corrigido/`, esses arquivos ainda não foram entregues neste repositório. Também seguem pendentes a conferência das 5 fontes oficiais, a carga da TACO real, os 6 limites da IN 75 e a indexação inicial `base_conhecimento_v1` no ChromaDB.
-- **Agentes reais e integração de dados (R2 — João Victor; R5 — Carlos):** Implementação do coordenador por regras, agente de comparação, agente nutricional conectado ao RAG/PostgreSQL e verificador B/C.
-- **Conjunto de teste revisado e execução dos benchmarks (R3 — Gustavo):** Conferência do gabarito de 50 perguntas nas fontes oficiais e execução do benchmark A/B/C.
-- **Aplicação Frontend Mobile First (R5 — Carlos):** Código React + Vite + Tailwind ainda não entregue no repositório.
+### 2.5 Pendências por Papel da Equipe (R1 a R7)
 
-### 2.6 Pendências Específicas de R6/R7 (Caio)
-- [x] Estruturar o repositório, preservar o baseline do backend e os documentos de contexto (concluído em 14/11).
-- [x] Implementar `backend/Dockerfile`, `compose.yaml`, `.env.example` e `.github/workflows/ci.yml` (concluído em 14/11).
-- [x] Estruturar `mlops/manifests/runtime-manifest.yaml` e convenções de versionamento de prompts/índices (concluído em 14/11).
-- [ ] Alinhar com Davi (R4) e João Victor (R2) a integração das migrações `001`–`004` (especialmente `metricas_requisicao`) assim que os arquivos SQL forem adicionados ao repositório.
-- [ ] Automatizar a montagem/execução das migrações do PostgreSQL no `compose.yaml` quando a pasta `migrations/` for entregue por R4.
-- [ ] Configurar o container do `frontend` no `compose.yaml` assim que R5 entregar a aplicação React.
-- [ ] Avaliar na semana 5 a inclusão opcional do serviço Grafana conectado ao PostgreSQL.
+- **R1 / R2 (João Victor — Negócio, Arquitetura e Orquestração):**
+  - [x] Entregar `adr.pdf` (ADR-001 a ADR-008) e `5_perguntas_escopo_essential_question.pdf` atualizados.
+  - [ ] Implementar coordenador determinístico por regras (`ocr_analysis`, `comparison`, `qa`) em `backend/graph.py`.
+  - [ ] Implementar agente de comparação e verificador por regras determinísticas (Config. B).
+- **R3 (Gustavo — Líder e Cientista de Dados):**
+  - [ ] Revisar o rascunho do conjunto de teste (50 perguntas) e conferir o gabarito nas fontes oficiais.
+  - [ ] Conferir os 6 limites da IN 75/2020 carregados por R4.
+  - [ ] Executar os benchmarks (LLM vs RAG, Verificador A/B/C e OCR) e registrar resultados em `mlops/experiments/`.
+- **R4 (Davi Rodrigues — Engenheiro de Dados):**
+  - [x] Elaborar e testar o esquema do PostgreSQL (`001_fontes.sql` a `004_metricas.sql` e `migrate.sh`).
+  - [ ] Incorporar os arquivos de migração e seeds SQL neste repositório.
+  - [ ] Conferir links/versões das 5 fontes oficiais, carregar a TACO real e os 6 limites literais da IN 75/2020 no PostgreSQL.
+  - [ ] Indexar os documentos oficiais no ChromaDB (`base_conhecimento_v1`).
+  - [ ] Implementar as regras de extração e checagens de consistência do OCR (semana 4).
+- **R5 (Carlos — Engenheiro de Software):**
+  - [x] Entregar esqueleto inicial da API FastAPI e LangGraph (`backend-whatsapp-v0.1.0`).
+  - [ ] Conectar o agente nutricional ao ChromaDB/PostgreSQL e implementar o verificador com LLM ligável (Config. C).
+  - [ ] Integrar o pipeline de pré-processamento OpenCV e OCR à API FastAPI.
+  - [ ] Desenvolver a aplicação web Mobile First (React + Vite + Tailwind) em `frontend/`.
+- **R6 / R7 (Caio Soares de Andrade — DevOps e MLOps):**
+  - [x] Estruturar o repositório, preservar o baseline `backend-whatsapp-v0.1.0` e os documentos de contexto.
+  - [x] Implementar `backend/Dockerfile`, `compose.yaml`, `.env.example`, `.github/workflows/ci.yml` e `scripts/smoke_backend.sh`.
+  - [x] Estruturar `mlops/manifests/runtime-manifest.yaml` e convenções de versionamento de prompts/índices/monitoramento.
+  - [ ] Integrar a execução automática das migrações SQL (`001`–`004`) no `compose.yaml` e na CI assim que R4 adicionar os arquivos ao repositório.
+  - [ ] Habilitar o container e o job de CI do `frontend` assim que R5 entregar a aplicação React.
+  - [ ] Avaliar na semana 5 a integração opcional do Grafana lendo do PostgreSQL.
 
 ---
 
 ## 3. Registro de Divergências entre Documentos de Origem
 
-Durante a auditoria documental em 14/11/2026, foram identificadas e registradas as seguintes observações entre `contextoCLAUDEV2.md`, `adr.pdf` e `5_perguntas_escopo_essential_question.pdf`:
+Durante a consolidação documental em 14/11/2026, foram registradas as seguintes observações entre `contextoCLAUDEV2.md`, `adr.pdf` e `5_perguntas_escopo_essential_question.pdf`:
 
 1. **Atualização dos ADRs e das 5 Perguntas:** A seção 12 de `contextoCLAUDEV2.md` listava ajustes pendentes nos ADRs (como detalhar configs A/B/C no ADR-005 e aprovar ADR-007/ADR-008 com PostgreSQL sem Prometheus) e na resposta C9 das 5 perguntas. A inspeção dos arquivos `adr.pdf` e `5_perguntas_escopo_essential_question.pdf` recebidos em 14/11 comprova que **essas atualizações já foram incorporadas nesses dois PDFs**.
 2. **Status formal do ADR-005 e ADR-006 em `adr.pdf`:**
    - **ADR-005** consta como *"Em avaliação"* porque a regra de decisão (+5 pts / ≤ 3 s) está aprovada, mas a escolha final entre B e C aguarda o resultado empírico do benchmark.
-   - **ADR-006** consta como *"Proposto para validação"* quanto à ferramenta definitiva de metadados; portanto, a estrutura em `mlops/` foi implementada de forma leve em Git/YAML conforme a seção 3 do ADR-006, sem introduzir serviços extras (como MLflow) sem aprovação de R2.
+   - **ADR-006** consta como *"Proposto para validação"* quanto à ferramenta definitiva de metadados; portanto, a estrutura em `mlops/` mantém o versionamento leve em Git/YAML conforme a seção 3 do ADR-006, sem introduzir serviços extras (como MLflow) sem deliberação da equipe.

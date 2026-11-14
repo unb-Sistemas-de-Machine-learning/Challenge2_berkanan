@@ -15,6 +15,7 @@ __pycache__/
 htmlcov/
 
 # Variáveis de ambiente e segredos (nunca versionar)
+.local/
 .env
 .env.local
 .env.*.local

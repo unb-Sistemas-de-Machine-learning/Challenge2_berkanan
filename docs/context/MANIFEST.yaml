@@ -1,7 +1,7 @@
 schema_version: "1.0"
 project: "Challenge 2 Berkanan"
 reference_date: "2026-11-14"
-maintained_by: "Caio Soares de Andrade (R6 — DevOps / R7 — MLOps)"
+maintained_by: "Equipe Berkanan (R1 a R7)"
 
 documents:
   - id: "CTX-001"
