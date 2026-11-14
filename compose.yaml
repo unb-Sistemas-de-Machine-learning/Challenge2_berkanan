@@ -58,6 +58,10 @@ services:
       - "${POSTGRES_HOST_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_fontes.sql:/docker-entrypoint-initdb.d/001_fontes.sql:ro
+      - ./migrations/002_taco_limites.sql:/docker-entrypoint-initdb.d/002_taco_limites.sql:ro
+      - ./migrations/003_cache.sql:/docker-entrypoint-initdb.d/003_cache.sql:ro
+      - ./migrations/004_metricas.sql:/docker-entrypoint-initdb.d/004_metricas.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-berkanan_user} -d $${POSTGRES_DB:-berkanan_dev}"]
       interval: 10s
