@@ -1,0 +1,47 @@
+# Ambientes virtuais Python e caches
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Variáveis de ambiente e segredos (nunca versionar)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Dados persistentes locais de bancos e artefatos temporários
+postgres_data/
+chroma_data/
+*.sqlite3
+*.db
+
+# Imagens de teste ou uploads temporários (LGPD: não versionar fotos de usuários)
+tmp/
+uploads/
+*.tmp
+
+# Node / Frontend (para quando o código React/Vite for entregue)
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Sistema operacional e IDEs
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo

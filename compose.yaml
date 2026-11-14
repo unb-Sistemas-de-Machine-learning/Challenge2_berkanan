@@ -1,0 +1,97 @@
+name: challenge2-berkanan
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: berkanan/challenge2-backend:0.1.0
+    container_name: berkanan-backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-berkanan_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-berkanan_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-base_conhecimento_v1}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      LLM_MODEL: ${LLM_MODEL:-not_configured}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-not_configured}
+      ENABLE_VERIFIER_DEFAULT: ${ENABLE_VERIFIER_DEFAULT:-true}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-307200}
+    ports:
+      - "${BACKEND_HOST_BIND:-127.0.0.1}:${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=3)"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - berkanan_internal
+
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: berkanan-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-berkanan_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-berkanan_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+    ports:
+      - "${POSTGRES_HOST_BIND:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-berkanan_user} -d $${POSTGRES_DB:-berkanan_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - berkanan_internal
+
+  chromadb:
+    image: chromadb/chroma:0.5.20
+    container_name: berkanan-chromadb
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    ports:
+      - "${CHROMA_HOST_BIND:-127.0.0.1}:${CHROMA_HOST_PORT:-8001}:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8000'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - berkanan_internal
+
+networks:
+  berkanan_internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  chroma_data:
