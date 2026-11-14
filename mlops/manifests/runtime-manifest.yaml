@@ -1,0 +1,99 @@
+schema_version: "1.0"
+manifest_type: "mlops_runtime_configuration"
+project: "Challenge 2 Berkanan"
+maintained_by: "Caio Soares de Andrade (R7 — Engenheiro MLOps)"
+
+configuration:
+  config_id: "cfg-baseline-whatsapp-v0.1.0"
+  environment: "development"
+  status: "SKELETON_MOCK_MODE"
+  code_baseline_id: "backend-whatsapp-v0.1.0"
+  code_git_commit: "28a8fa27516b77de81a5585f8aed4f0397f5a888"
+
+execution_trace:
+  experiment_id: "not_configured"
+  execution_timestamp_utc: "not_configured"
+  executed_by: "not_configured"
+
+llm:
+  primary_provider: "gemini"
+  primary_model_name: "not_configured"
+  primary_model_version: "not_configured"
+  fallback_provider: "not_configured"
+  fallback_model_name: "not_configured"
+  vision_fallback_enabled: false
+  max_llm_calls_per_response: 2
+  inference_parameters:
+    temperature: 0.0
+    max_output_tokens: "not_configured"
+    top_p: "not_configured"
+    top_k: "not_configured"
+
+prompts:
+  registry_path: "mlops/prompts/"
+  coordinator_routing: "deterministic_rules_only (no_llm_prompt)"
+  nutritional_agent_prompt_version: "not_configured (atualmente resposta simulada em backend/graph.py)"
+  comparison_agent_prompt_version: "not_configured"
+  verifier_agent_prompt_version: "not_configured"
+
+knowledge_base_rag:
+  vector_store: "chromadb"
+  index_version: "base_conhecimento_v1"
+  index_status: "not_configured (aguardando ingestao por R4)"
+  embedding_provider: "huggingface"
+  embedding_model_name: "not_configured (mesmo modelo do Desafio 1, pendente de integracao no codigo)"
+  chunking_parameters:
+    chunk_size_chars: 1000
+    chunk_overlap_chars: 150
+  required_chunk_metadata:
+    - "documento"
+    - "fonte_id"
+    - "arquivo"
+    - "pagina"
+    - "versao_indice"
+
+structured_database:
+  engine: "postgresql"
+  engine_version: "16.4"
+  schema_migrations_status: "not_configured_in_repo (migracoes 001-004 revisadas por R4, aguardando inclusao no repositorio)"
+  tables_expected:
+    - "fontes_documentos"
+    - "taco_alimentos"
+    - "limites_rotulagem"
+    - "produtos_lidos"
+    - "metricas_requisicao"
+
+ocr_pipeline:
+  preprocessing: "opencv (pendente de implementacao)"
+  ocr_tool: "not_configured (pendente de benchmark Semana 4: tesseract vs paddleocr)"
+  ocr_tool_version: "not_configured"
+  client_compression_target:
+    max_side_px: 1280
+    format: "JPEG"
+    max_size_bytes: 307200
+  mandatory_user_confirmation: true
+
+verifier:
+  configurable_flag: "enable_verifier"
+  default_enabled: true
+  current_implementation_state: "mock_boolean_sources_check"
+  benchmark_configurations:
+    config_A: "Sem verificador (enable_verifier=false)"
+    config_B: "Verificacao deterministica por regras em codigo (sem chamada adicional ao LLM)"
+    config_C: "Agente verificador com LLM"
+  adoption_rule_for_config_C:
+    min_fidelity_gain_percentage_points_over_B: 5.0
+    max_additional_latency_seconds_over_B: 3.0
+  selected_production_config: "not_configured (aguardando benchmark Semana 3)"
+
+monitoring:
+  backend_storage: "postgresql (tabela metricas_requisicao + logs de aplicacao)"
+  prometheus_enabled: false
+  grafana_status: "optional_week_5_not_configured"
+  quality_thresholds:
+    min_ocr_extraction_accuracy_pct: 85.0
+    min_source_fidelity_pct: 90.0
+    min_rag_recall_top3_pct: 80.0
+    min_out_of_scope_refusal_pct: 90.0
+    max_median_latency_4g_seconds: 10.0
+    max_avg_llm_calls_per_response: 2.0
