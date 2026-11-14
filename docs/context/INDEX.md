@@ -152,9 +152,11 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
   - [ ] Executar os benchmarks (LLM vs RAG, Verificador A/B/C e OCR) e registrar resultados em `mlops/experiments/`.
 - **R4 (Davi Rodrigues — Engenheiro de Dados):**
   - [x] Elaborar e testar o esquema do PostgreSQL (`001_fontes.sql` a `004_metricas.sql` e `migrate.sh`).
-  - [ ] Incorporar os arquivos de migração e seeds SQL neste repositório.
+  - [x] Incorporar os arquivos de migração e seeds SQL neste repositório (`migrations/` e `seeds/`).
+  - [x] Implementar módulos de integração com PostgreSQL (`backend/database.py`) e ChromaDB (`backend/chroma_client.py`).
+  - [x] Documentar plano e matriz R4 em `docs/r4/documento_desafio2_r4.md` e `docs/r4/papel_R4_davi.xlsx`.
   - [ ] Conferir links/versões das 5 fontes oficiais, carregar a TACO real e os 6 limites literais da IN 75/2020 no PostgreSQL.
-  - [ ] Indexar os documentos oficiais no ChromaDB (`base_conhecimento_v1`).
+  - [ ] Indexar o texto integral dos documentos oficiais no ChromaDB (`base_conhecimento_v1` via `scripts/ingest_chroma.py`).
   - [ ] Implementar as regras de extração e checagens de consistência do OCR (semana 4).
 - **R5 (Carlos — Engenheiro de Software):**
   - [x] Entregar esqueleto inicial da API FastAPI e LangGraph (`backend-whatsapp-v0.1.0`).
@@ -165,7 +167,7 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
   - [x] Estruturar o repositório, preservar o baseline `backend-whatsapp-v0.1.0` e os documentos de contexto.
   - [x] Implementar `backend/Dockerfile`, `compose.yaml`, `.env.example`, `.github/workflows/ci.yml` e `scripts/smoke_backend.sh`.
   - [x] Estruturar `mlops/manifests/runtime-manifest.yaml` e convenções de versionamento de prompts/índices/monitoramento.
-  - [ ] Integrar a execução automática das migrações SQL (`001`–`004`) no `compose.yaml` e na CI assim que R4 adicionar os arquivos ao repositório.
+  - [x] Integrar a execução automática das migrações SQL (`001`–`004`) no `compose.yaml` (volume `/docker-entrypoint-initdb.d`).
   - [ ] Habilitar o container e o job de CI do `frontend` assim que R5 entregar a aplicação React.
   - [ ] Avaliar na semana 5 a integração opcional do Grafana lendo do PostgreSQL.
 
