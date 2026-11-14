@@ -30,7 +30,7 @@ flowchart LR
 | `frontend` | *Não incluído ainda* | — | — | — | `PENDENTE` (será adicionado quando R5 entregar o projeto React/Vite) |
 
 > [!WARNING]
-> **Transparência Arquitetural:** A presença dos serviços `postgres` e `chromadb` no [compose.yaml](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/compose.yaml) prepara o ambiente de execução conforme o **ADR-001**, mas **não significa que a API FastAPI já esteja consultando esses bancos**. No baseline atual (`backend-whatsapp-v0.1.0`), `backend/graph.py` retorna dados simulados em memória.
+> **Transparência Arquitetural:** A presença dos serviços `postgres` e `chromadb` no [compose.yaml](../../compose.yaml) prepara o ambiente de execução conforme o **ADR-001**, mas **não significa que a API FastAPI já esteja consultando esses bancos**. No baseline atual (`backend-whatsapp-v0.1.0`), `backend/graph.py` retorna dados simulados em memória.
 
 ---
 

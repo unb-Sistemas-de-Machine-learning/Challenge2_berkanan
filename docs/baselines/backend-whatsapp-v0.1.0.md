@@ -11,29 +11,29 @@
 | **Responsáveis pelo código (Backend)** | Carlos (R5 — Eng. de Software) e João Victor (R2 — Arquiteto) |
 | **Responsável pela preservação** | Caio Soares de Andrade (R6 — DevOps / R7 — MLOps) |
 | **Commit Git do Baseline** | `28a8fa27516b77de81a5585f8aed4f0397f5a888` |
-| **Snapshot imutável** | [snapshots/backend/whatsapp-v0.1.0/original/](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/snapshots/backend/whatsapp-v0.1.0/original) |
-| **Manifesto técnico** | [manifest.yaml](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/snapshots/backend/whatsapp-v0.1.0/manifest.yaml) |
-| **Hashes SHA-256** | [SHA256SUMS](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/snapshots/backend/whatsapp-v0.1.0/SHA256SUMS) |
-| **Localização canônica executável** | [backend/](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/backend) |
+| **Snapshot imutável** | [snapshots/backend/whatsapp-v0.1.0/original/](../../snapshots/backend/whatsapp-v0.1.0/original) |
+| **Manifesto técnico** | [manifest.yaml](../../snapshots/backend/whatsapp-v0.1.0/manifest.yaml) |
+| **Hashes SHA-256** | [SHA256SUMS](../../snapshots/backend/whatsapp-v0.1.0/SHA256SUMS) |
+| **Localização canônica executável** | [backend/](../../backend) |
 
 ---
 
 ## 2. O que o Backend já implementou neste Baseline (`IMPLEMENTADO`)
 
-1. **Aplicação FastAPI ([backend/main.py](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/backend/main.py)):**
+1. **Aplicação FastAPI ([backend/main.py](../../backend/main.py)):**
    - Instância FastAPI exportada como `api` (`title="Berkanan Desafio 2 - API Local"`).
    - Endpoint `POST /api/analyze` recebendo `AnalysisRequest` e retornando `AnalysisResponse`.
    - Medição de tempo de execução em milissegundos (`response_time_ms`) via `time.perf_counter()`.
    - Preenchimento opcional do objeto `verification` (`VerificationResult`) quando `request.enable_verifier == True`.
-2. **Orquestração inicial com LangGraph ([backend/graph.py](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/backend/graph.py)):**
+2. **Orquestração inicial com LangGraph ([backend/graph.py](../../backend/graph.py)):**
    - Grafo de estado (`StateGraph(AgentState)`) compilado como `app`.
    - Três nós declarados: `coordinator`, `nutritional` e `verifier`.
    - Transição condicional `route_verifier` após o nó `nutritional`, desviando para `verifier` quando `enable_verifier=True` ou encerrando em `END` quando `enable_verifier=False`.
-3. **Contratos de Dados ([backend/schemas.py](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/backend/schemas.py) e [backend/state.py](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/backend/state.py)):**
+3. **Contratos de Dados ([backend/schemas.py](../../backend/schemas.py) e [backend/state.py](../../backend/state.py)):**
    - Tipos literais `RequestType` (`"ocr_analysis"`, `"comparison"`, `"qa"`) e `RecommendationTone` (`"SAUDAVEL"`, `"ATENCAO"`, `"EVITAR"`, `"INCONCLUSIVO"`, `"ERRO"`).
    - Modelos Pydantic: `UserProfile`, `AnalysisRequest`, `MatchedSource`, `ExtractedOCRData`, `VerificationResult`, `AnalysisResponse`.
    - Estado tipado `AgentState` (`TypedDict`) para trânsito de dados no grafo.
-4. **Script básico de teste manual ([backend/test_api.sh](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/backend/test_api.sh)):**
+4. **Script básico de teste manual ([backend/test_api.sh](../../backend/test_api.sh)):**
    - Duas chamadas `curl` exercitando `enable_verifier: true` e `enable_verifier: false`.
 
 ---

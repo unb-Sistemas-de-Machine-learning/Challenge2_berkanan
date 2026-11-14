@@ -37,7 +37,7 @@ Exemplos:
 ### Regras de incremento de versão
 - **Incremento `MAJOR` (`v1.0` → `v2.0`):** Mudança estrutural nas instruções de sistema, alteração nas regras de formato de saída/citação ou mudança de escopo.
 - **Incremento `MINOR` (`v1.0` → `v1.1`):** Ajustes de redação ou exemplos (*few-shot*) mantendo o mesmo contrato de saída.
-- **Imutabilidade para Benchmarks:** Uma vez que uma versão (ex.: `v1.0`) tenha sido utilizada em um benchmark oficial de R3, o arquivo não deve ser sobrescrito; crie uma nova versão (`v1.1` ou `v2.0`) e atualize [mlops/manifests/runtime-manifest.yaml](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/mlops/manifests/runtime-manifest.yaml).
+- **Imutabilidade para Benchmarks:** Uma vez que uma versão (ex.: `v1.0`) tenha sido utilizada em um benchmark oficial de R3, o arquivo não deve ser sobrescrito; crie uma nova versão (`v1.1` ou `v2.0`) e atualize [mlops/manifests/runtime-manifest.yaml](../manifests/runtime-manifest.yaml).
 
 ---
 

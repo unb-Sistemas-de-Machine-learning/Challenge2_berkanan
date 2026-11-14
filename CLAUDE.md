@@ -10,16 +10,16 @@ A governança deste repositório é **global e compartilhada por toda a equipe (
 
 Toda a documentação normativa e de contexto está centralizada nos seguintes arquivos:
 
-- **Governança global para agentes e colaboradores:** [AGENTS.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/AGENTS.md) e [docs/context/AGENTS.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/AGENTS.md)
-- **Índice consolidado do projeto (escopo, arquitetura, métricas e pendências):** [docs/context/INDEX.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/INDEX.md)
-- **Manifesto de documentos e ADRs (SHA-256 e status):** [docs/context/MANIFEST.yaml](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/MANIFEST.yaml)
+- **Governança global para agentes e colaboradores:** [AGENTS.md](AGENTS.md) e [docs/context/AGENTS.md](docs/context/AGENTS.md)
+- **Índice consolidado do projeto (escopo, arquitetura, métricas e pendências):** [docs/context/INDEX.md](docs/context/INDEX.md)
+- **Manifesto de documentos e ADRs (SHA-256 e status):** [docs/context/MANIFEST.yaml](docs/context/MANIFEST.yaml)
 - **Fontes originais preservadas (imutáveis):**
-  - [docs/context/sources/contextoCLAUDEV2.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/sources/contextoCLAUDEV2.md)
-  - [docs/context/sources/adr.pdf](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/sources/adr.pdf) (ADR-001 a ADR-008)
-  - [docs/context/sources/5_perguntas_escopo_essential_question.pdf](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/context/sources/5_perguntas_escopo_essential_question.pdf)
-- **Matriz de responsabilidades e handoff (R1–R7):** [docs/handoff/RESPONSIBILITIES.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/handoff/RESPONSIBILITIES.md)
-- **Baseline inicial do Backend (`backend-whatsapp-v0.1.0`):** [docs/baselines/backend-whatsapp-v0.1.0.md](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/docs/baselines/backend-whatsapp-v0.1.0.md)
-- **Manifesto de configuração e versões MLOps:** [mlops/manifests/runtime-manifest.yaml](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/mlops/manifests/runtime-manifest.yaml)
+  - [docs/context/sources/contextoCLAUDEV2.md](docs/context/sources/contextoCLAUDEV2.md)
+  - [docs/context/sources/adr.pdf](docs/context/sources/adr.pdf) (ADR-001 a ADR-008)
+  - [docs/context/sources/5_perguntas_escopo_essential_question.pdf](docs/context/sources/5_perguntas_escopo_essential_question.pdf)
+- **Matriz de responsabilidades e handoff (R1–R7):** [docs/handoff/RESPONSIBILITIES.md](docs/handoff/RESPONSIBILITIES.md)
+- **Baseline inicial do Backend (`backend-whatsapp-v0.1.0`):** [docs/baselines/backend-whatsapp-v0.1.0.md](docs/baselines/backend-whatsapp-v0.1.0.md)
+- **Manifesto de configuração e versões MLOps:** [mlops/manifests/runtime-manifest.yaml](mlops/manifests/runtime-manifest.yaml)
 
 > **Contextos pessoais (`.local/`):** Anotações ou instruções particulares de um colaborador ficam em `.local/` (ignorado pelo Git) e só devem ser usadas quando indicadas explicitamente na conversa.
 
@@ -59,7 +59,7 @@ docker compose up --build -d
 
 ## 4. Regras Críticas do Projeto
 
-1. **Localização canônica:** O código ativo do backend fica em [backend/](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/backend) (`uvicorn main:api`). O diretório [snapshots/backend/whatsapp-v0.1.0/original/](file:///home/caio/Documentos/GitHub/Challenge2_berkanan/snapshots/backend/whatsapp-v0.1.0/original) é registro histórico imutável — **nunca edite**.
+1. **Localização canônica:** O código ativo do backend fica em [backend/](backend) (`uvicorn main:api`). O diretório [snapshots/backend/whatsapp-v0.1.0/original/](snapshots/backend/whatsapp-v0.1.0/original) é registro histórico imutável — **nunca edite**.
 2. **Transparência de status:** Diferencie sempre `APROVADO`, `PENDENTE`, `PROPOSTO`, `IMPLEMENTADO` e `SIMULADO`. Não declare integrações com PostgreSQL, ChromaDB ou OCR como concluídas enquanto o código estiver em modo mock.
 3. **Regras de negócio e segurança (APROVADAS):**
    - Zero cálculo numérico pelo LLM (todo número nutricional vem do PostgreSQL ou do rótulo confirmado via código determinístico);
