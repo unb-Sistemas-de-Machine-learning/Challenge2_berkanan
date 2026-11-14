@@ -17,6 +17,8 @@ Projeto acadêmico de Sistemas de Machine Learning e MLOps cujo objetivo é auxi
 
 > **Aviso acadêmico:** este sistema possui caráter exclusivamente informativo e educacional e **não substitui** orientação médica ou nutricional profissional. Nunca afirma que um produto é livre de alergênicos e exige sempre a conferência da embalagem física.
 
+**Acompanhamento do projeto:** [quadro no GitHub Projects](https://github.com/users/GustOki/projects/3), com as tarefas, os responsáveis e os prazos de cada semana.
+
 ---
 
 ## Sumário
@@ -106,7 +108,7 @@ As metas abaixo guiam os benchmarks conduzidos por **R3 (Cientista de Dados)** a
 | **Pipeline OpenCV + OCR + confirmação do usuário** | `PENDENTE` | Aguardando benchmark da semana 4 e integração por R4/R5. |
 | **Frontend Web Mobile First (React + Vite + Tailwind)** | `PENDENTE` | Diretório [frontend/](frontend) documentado, aguardando entrega do código por R5. |
 
-Pendências detalhadas por pessoa: [docs/context/INDEX.md](docs/context/INDEX.md) e planilha "Quadro do Desafio 2".
+Pendências detalhadas por pessoa, com responsável, prazo e dependências: [quadro do projeto no GitHub Projects](https://github.com/users/GustOki/projects/3) (issues #2 a #24). Resumo consolidado em [docs/context/INDEX.md](docs/context/INDEX.md).
 
 ---
 
