@@ -1,0 +1,86 @@
+schema_version: "1.0"
+project: "Challenge 2 Berkanan"
+reference_date: "2026-11-14"
+maintained_by: "Caio Soares de Andrade (R6 — DevOps / R7 — MLOps)"
+
+documents:
+  - id: "CTX-001"
+    name: "contextoCLAUDEV2.md"
+    path: "docs/context/sources/contextoCLAUDEV2.md"
+    type: "markdown"
+    origin: "Base de conhecimento consolidada pela liderança da Equipe Berkanan (Gustavo / R3)"
+    reference_date: "2026-11-14"
+    size_bytes: 22462
+    sha256: "0c24269a73f6a3ad8983ac701fa76a3195c3ee2205f0de1c7184e3ad372a48d1"
+    version: "v2 (2026-11-14)"
+    approval_status: "MISTO (seções marcadas explicitamente como APROVADO ou PENDENTE no próprio documento)"
+    architectural_relation: >
+      Define a visão geral do Desafio 2, Essential Question, escopo, 11 regras obrigatórias do código,
+      arquitetura em duas bases (PostgreSQL + ChromaDB), regras do benchmark do verificador (A/B/C),
+      esquema SQL entregue por R4, divisão de papéis R1-R7, cronograma de 6 semanas, 10 métricas de
+      validação e pendências por integrante em 14/11/2026.
+
+  - id: "CTX-002"
+    name: "adr.pdf"
+    path: "docs/context/sources/adr.pdf"
+    type: "pdf"
+    origin: "Architecture Decision Records elaborados por João Victor (R1/R2) e revisados pela equipe"
+    reference_date: "2026-11-13"
+    size_bytes: 668628
+    sha256: "293449cf5a9c0d9a930409ca96f318b75de08a6c558ab2d56bf4457c2bb3f317"
+    version: "Compilado ADR-001 a ADR-008 (38 páginas)"
+    approval_status: "DETALHADO_POR_ADR"
+    adrs_included:
+      - id: "ADR-001"
+        title: "Arquitetura híbrida de armazenamento: PostgreSQL + ChromaDB"
+        status: "APROVADO"
+        owners: ["R2", "R4", "R6"]
+      - id: "ADR-002"
+        title: "Estratégia de extração de informações nutricionais por OCR e regras"
+        status: "APROVADO_PARCIALMENTE (fluxo aprovado; escolha entre Tesseract e PaddleOCR pendente de benchmark)"
+        owners: ["R2", "R3", "R4", "R5"]
+      - id: "ADR-003"
+        title: "Utilização do FastAPI como camada central de processamento"
+        status: "APROVADO (em 13/11/2026)"
+        owners: ["R2", "R5", "R6"]
+      - id: "ADR-004"
+        title: "Utilização do LangGraph para orquestração dos agentes"
+        status: "APROVADO (coordenador determinístico por regras, limite de 1 a 2 chamadas ao LLM)"
+        owners: ["R2", "R5"]
+      - id: "ADR-005"
+        title: "Estratégia de verificação das respostas geradas pelo sistema"
+        status: "EM_AVALIACAO (critério aprovado: Config. C exige >= +5 pts fidelidade e <= +3 s latência sobre Config. B)"
+        owners: ["R2", "R3", "R5"]
+      - id: "ADR-006"
+        title: "Estratégia de versionamento de modelos, prompts e bases de conhecimento"
+        status: "PROPOSTO_PARA_VALIDACAO (versionamento inicial em Git/GitHub)"
+        owners: ["R2", "R7"]
+      - id: "ADR-007"
+        title: "Utilização do GitHub Actions para CI/CD"
+        status: "APROVADO (em 13/11/2026)"
+        owners: ["R2", "R6"]
+      - id: "ADR-008"
+        title: "Estratégia de monitoramento e observabilidade do projeto"
+        status: "APROVADO (em 13/11/2026 — logs + tabela no PostgreSQL; sem Prometheus; Grafana opcional na semana 5)"
+        owners: ["R2", "R4", "R6", "R7"]
+    architectural_relation: >
+      Fonte normativa das decisões arquiteturais do sistema (R2). Qualquer alteração estrutural em
+      bancos, OCR, API, agentes, verificador, versionamento MLOps, CI/CD ou monitoramento deve respeitar
+      estes ADRs ou propor revisão formal ao arquiteto (João Victor — R2).
+
+  - id: "CTX-003"
+    name: "5_perguntas_escopo_essential_question.pdf"
+    path: "docs/context/sources/5_perguntas_escopo_essential_question.pdf"
+    type: "pdf"
+    origin: "Documento de alinhamento conceitual de MLOps, Essential Question e Escopo (João Victor — R1/R2)"
+    reference_date: "2026-11-13"
+    size_bytes: 216618
+    sha256: "cdd8a1e551bbe1f46a80105a84e8bc548e0ea5e1e776a8cd714d3a8ca1d6699b"
+    version: "Versão revisada (8 páginas)"
+    approval_status: "APROVADO"
+    architectural_relation: >
+      Mapeia formalmente os papéis R1 a R7, a transformação do problema de negócio em problema de ML,
+      a seleção e adaptação dos 9 componentes de MLOps (C1 a C9, justificando a ausência de Feature Store
+      e Infraestrutura de Treino dedicadas), os gatilhos de atualização/reindexação (limiar de acerto < 85%
+      ou fidelidade < 90% e entrada de novos dados), o roteamento de feedback de monitoramento para cada
+      papel (R2 a R7), a Essential Question e o Escopo positivo/negativo.
