@@ -42,6 +42,7 @@ class TestRun(unittest.TestCase):
 
     def tearDown(self):
         self.server.shutdown()
+        self.server.server_close()
 
     def test_run_writes_outputs(self):
         args = run.parse_args([
