@@ -23,6 +23,8 @@ Projeto acadêmico de Sistemas de Machine Learning e MLOps cujo objetivo é auxi
 
 - [Sobre o projeto](#sobre-o-projeto)
 - [Objetivos, métricas de validação e estado atual](#objetivos-métricas-de-validação-e-estado-atual)
+- [Conjunto de teste e benchmarks](#conjunto-de-teste-e-benchmarks)
+- [Cronograma](#cronograma)
 - [Arquitetura](#arquitetura)
 - [Abordagem Mobile First e privacidade (LGPD)](#abordagem-mobile-first-e-privacidade-lgpd)
 - [Stack técnica](#stack-técnica)
@@ -34,6 +36,7 @@ Projeto acadêmico de Sistemas de Machine Learning e MLOps cujo objetivo é auxi
 - [Governança MLOps, versionamento e ADRs](#governança-mlops-versionamento-e-adrs)
 - [Testes e CI/CD](#testes-e-cicd)
 - [Deploy](#deploy)
+- [Riscos e mitigações](#riscos-e-mitigações)
 - [Limitações conhecidas](#limitações-conhecidas)
 - [Equipe e referências](#equipe-e-referências)
 - [Licença](#licença)
@@ -46,6 +49,8 @@ Projeto acadêmico de Sistemas de Machine Learning e MLOps cujo objetivo é auxi
 - **Problema:** as pessoas decidem o que comprar com base em rótulos nutricionais difíceis de ler, em marketing de embalagens e em redes sociais. A informação confiável existe (Guia Alimentar para a População Brasileira, normas da ANVISA RDC 429/2020 e IN 75/2020, OMS, SBD), mas está distribuída em documentos longos que ninguém consulta na hora da compra.
 - **Essential Question (`APROVADO`):** *"Como a inteligência artificial pode usar os rótulos de produtos e fontes oficiais para ajudar a orientar os consumidores brasileiros a escolher opções mais saudáveis na sua alimentação de forma rápida e confiável?"*
 - **Público-alvo:** consumidor adulto no supermercado, usando o navegador do celular. Grupo de maior atenção: pessoas com **diabetes** ou **hipertensão**.
+- **Restrições do professor (obrigatórias em todo o trabalho):** entender o problema antes da solução; justificar decisões técnicas; explicitar riscos e limitações; validar com métricas objetivas; utilizar evidências confiáveis.
+- **Entrega final:** 07/12/2026 (aplicação, relatório e apresentação).
 
 **Escopo aprovado (o que o sistema faz):**
 - Lê a foto do rótulo nutricional e explica o produto: valor energético, carboidratos, açúcares totais e adicionados, proteínas, gorduras (totais, saturadas e trans), fibra alimentar, sódio, %VD (percentual de valores diários) e grau de processamento.
@@ -68,7 +73,7 @@ Projeto acadêmico de Sistemas de Machine Learning e MLOps cujo objetivo é auxi
 
 ### Metas experimentais e de validação (`APROVADO`)
 
-As metas abaixo guiam os benchmarks conduzidos por **R3 (Cientista de Dados)** ao longo das semanas 2 a 6:
+As metas abaixo guiam os benchmarks conduzidos por **R3 (Cientista de Dados)** ao longo das semanas 2 a 6. São uma proposta inicial, a ajustar após a primeira medição. Nenhuma foi medida até 14/11, porque o backend ainda está em modo simulado:
 
 | Métrica | O que mede | Meta inicial | Semana | Status em 14/11 |
 |---|---|---|---|---|
@@ -76,11 +81,11 @@ As metas abaixo guiam os benchmarks conduzidos por **R3 (Cientista de Dados)** a
 | **Fidelidade às fontes** | % de afirmações sustentadas pelo trecho citado | ≥ 90% | 2 | `PENDENTE` |
 | **Recall da recuperação (top 3)** | % com o trecho correto entre os 3 primeiros do ChromaDB | ≥ 80% | 2 | `PENDENTE` |
 | **Recusa correta** | % de perguntas fora da base respondidas com `"não há evidência suficiente"` | ≥ 90% | 2 | `PENDENTE` |
-| **Ganho do verificador (LLM)** | Comparativo entre Config. A (sem), B (regras) e C (LLM) | Adotar C só se ganhar **≥ +5 pts** de fidelidade sobre B com **≤ +3 s** de latência | 3 | `EM AVALIAÇÃO` |
+| **Ganho do verificador (LLM)** | Comparativo entre Config. A (sem), B (regras) e C (LLM) | Adotar C só se ganhar **≥ +5 pts** de fidelidade sobre B com **≤ +3 s** de latência | 3 | `PENDENTE` (ferramenta pronta; aguardando backend real) |
 | **Acerto da extração (OCR)** | % de campos lidos corretamente (~30 fotos de rótulos) | ≥ 85% | 4 | `PENDENTE` |
 | **Custo/tempo da extração** | Tempo e recursos por foto | Comparativo Tesseract vs PaddleOCR vs Gemini Vision | 4 | `PENDENTE` |
 | **Tempo de resposta** | Latência mediana ponta a ponta em rede móvel 4G | ≤ 10 s | 5 | `PENDENTE` |
-| **Chamadas ao LLM** | Média de invocações ao LLM por resposta | ≤ 2 | 5 | `APROVADO` |
+| **Chamadas ao LLM** | Média de invocações ao LLM por resposta | ≤ 2 | 5 | `PENDENTE` (a API ainda não informa as chamadas) |
 | **Avaliação de usuários** | Clareza e utilidade (5 a 10 pessoas) | ≥ 4,0 de 5,0 | 6 | `PENDENTE` |
 
 ### Objetivos x entregas (estado em 14/11/2026)
@@ -94,10 +99,76 @@ As metas abaixo guiam os benchmarks conduzidos por **R3 (Cientista de Dados)** a
 | **Containerização Docker e Docker Compose** | `IMPLEMENTADO` | [backend/Dockerfile](backend/Dockerfile) e [compose.yaml](compose.yaml) orquestrando `backend`, `postgres` (PostgreSQL 16) e `chromadb` com volumes e healthchecks. |
 | **CI/CD com GitHub Actions e Smoke Tests** | `IMPLEMENTADO` | Pipeline [.github/workflows/ci.yml](.github/workflows/ci.yml) e script [scripts/smoke_backend.sh](scripts/smoke_backend.sh). |
 | **Estrutura MLOps (manifesto, prompts, índices, monitoramento)** | `IMPLEMENTADO` | Manifesto [mlops/manifests/runtime-manifest.yaml](mlops/manifests/runtime-manifest.yaml) e convenções em [mlops/](mlops). |
+| **Ferramentas de benchmark (R3)** | `IMPLEMENTADO` (sem resultados oficiais) | Validador do conjunto de teste, executor A/B/C contra a API e cálculo das métricas e da decisão C x B em [mlops/experiments/benchmark/](mlops/experiments/benchmark). |
+| **Conjunto de teste (50 perguntas)** | `RASCUNHO` fora do repo | Em revisão por R3; gabarito ainda não conferido nas fontes oficiais. Modelo do CSV em [mlops/experiments/testset/](mlops/experiments/testset). |
 | **Migrações SQL (TACO, limites IN 75, `metricas_requisicao`)** | `PENDENTE` no repo | Esquema revisado por R4 fora do repositório; aguardando inclusão dos arquivos `.sql` e conexão no código do backend. |
 | **Ingestão RAG no ChromaDB (`base_conhecimento_v1`)** | `PENDENTE` | Container ChromaDB pronto; aguardando ingestão das 5 fontes oficiais por R4. |
 | **Pipeline OpenCV + OCR + confirmação do usuário** | `PENDENTE` | Aguardando benchmark da semana 4 e integração por R4/R5. |
 | **Frontend Web Mobile First (React + Vite + Tailwind)** | `PENDENTE` | Diretório [frontend/](frontend) documentado, aguardando entrega do código por R5. |
+
+Pendências detalhadas por pessoa: [docs/context/INDEX.md](docs/context/INDEX.md) e planilha "Quadro do Desafio 2".
+
+---
+
+## Conjunto de teste e benchmarks
+
+### Conjunto de teste (`RASCUNHO`, em revisão por R3)
+
+São 50 perguntas com as colunas `ID, Categoria, Pergunta, Resposta esperada (gabarito), Fonte esperada, Comportamento esperado, Métrica, Conferir na fonte`. O mesmo conjunto serve aos benchmarks LLM x RAG e do verificador. O benchmark de extração usará cerca de 30 fotos de rótulos.
+
+| Prefixo | Categoria | Qtd. | Mede |
+|---|---|---|---|
+| A | Guia Alimentar | 10 | Acerto, fidelidade, recall |
+| B | Rotulagem ANVISA | 10 | Acerto, fidelidade, recall |
+| C | Cálculo "ALTO EM" (inclui normalização por porção e leitura inconsistente) | 8 | Acerto |
+| D | Comparação de dois produtos | 6 | Acerto, fidelidade |
+| E | Alergênicos | 5 | Acerto, segurança |
+| F | Saúde e OMS (diabetes, hipertensão) | 5 | Acerto, segurança |
+| G | Fora do escopo (dose, dieta, marca, transgênico, sem evidência) | 6 | Recusa correta |
+
+O gabarito foi escrito de memória e **precisa ser conferido nas fontes oficiais** antes de valer como referência. As linhas com `Conferir na fonte = Sim` são as de menor certeza. Os produtos das categorias C e D são fictícios.
+
+### Benchmark do verificador (ADR-005)
+
+Mesmo conjunto de teste, mesmo modelo, temperatura 0 e 3 repetições para cada configuração:
+
+| Config. | Verificação |
+|---|---|
+| A | Sem verificador |
+| B | Por regras, sem LLM: todo número existe na base estruturada e toda resposta cita um trecho recuperado |
+| C | Agente verificador com LLM |
+
+A configuração C só fica se aumentar a fidelidade em ≥ 5 pontos sobre B, sem somar mais de 3 s à resposta. Caso contrário, fica B. **Status em 14/11:** não iniciado. Depende das bases (R4), do coordenador e do agente de comparação (R2) e do agente nutricional com verificador ligável (R5).
+
+### Ferramentas ([mlops/experiments/benchmark/](mlops/experiments/benchmark))
+
+Usam só a biblioteca padrão do Python. Rodar de dentro de `mlops/experiments/`:
+
+```bash
+python -m benchmark.testset testset/conjunto_de_teste.csv --strict      # valida o CSV
+python -m benchmark.run --testset testset/conjunto_de_teste.csv \
+    --configs A B C --reps 3 --api http://127.0.0.1:8000               # executa e gera a planilha de correção
+python -m benchmark.metrics results/<experimento>/correcao.csv          # métricas e decisão C x B
+python -m unittest discover -s tests -t .                               # testes das ferramentas
+```
+
+Com o backend em modo simulado, o executor marca o experimento como não oficial (`"official": false`), e esse resultado não vale como evidência. Detalhes e regras de correção estão em [mlops/experiments/README.md](mlops/experiments/README.md).
+
+---
+
+## Cronograma
+
+| Semana | Período | Foco | Entregável |
+|---|---|---|---|
+| 1 | 26/10–01/11 | Problema, stakeholders, riscos, métricas | Definições do projeto |
+| 2 | 02/11–08/11 | RAG e comparação LLM x RAG | Base no ChromaDB, conjunto de teste, comparação medida |
+| 3 | 09/11–15/11 | Multiagentes | TACO e limites no PostgreSQL; agentes com verificador ligável; benchmark do verificador |
+| 4 | 16/11–22/11 | Multimodalidade | Pipeline OCR + regras; benchmark de extração (~30 fotos) |
+| 5 | 23/11–29/11 | Integração | Aplicação funcional; testes no celular (tempo e tamanho da imagem) |
+| 6 | 30/11–06/12 | Testes e refinamento | Avaliação com usuários, relatório, apresentação |
+| — | 07/12 | Entrega final | Aplicação, relatório e apresentação |
+
+Feriado: 20/11.
 
 ---
 
@@ -122,7 +193,7 @@ A arquitetura aprovada em 11/11 e 13/11/2026 ([ADR-001 a ADR-008](docs/context/s
                   ▼                                  ▼
 ┌────────────────────────────────────┐   ┌─────────────────────────────────┐
 │ PIPELINE DE IMAGEM E OCR (ADR-002) │   │ COORDENADOR POR REGRAS (ADR-004)│
-│ • OpenCV (cinza, ruído, contraste) │   │ • Roteia sem chamar o LLM       │
+│ • OpenCV (cinza, inclinação, bin.) │   │ • Roteia sem chamar o LLM       │
 │ • OCR CPU: Tesseract ou PaddleOCR  │   │ • Limite: <= 2 chamadas LLM/resp│
 │ • Regras regex + validação 4C+4P+9G│   └───────────────┬─────────────────┘
 │ • Reserva: LLM multimodal se falhar│                   │
@@ -220,7 +291,11 @@ Challenge2_berkanan/
 │   ├── manifests/
 │   │   └── runtime-manifest.yaml  # Manifesto de versões (LLM, prompts, índice ChromaDB, OCR, commit)
 │   ├── prompts/README.md          # Convenção de versionamento de prompts dos agentes
-│   ├── experiments/README.md      # Rastreabilidade dos índices (base_conhecimento_v1...) e benchmarks
+│   ├── experiments/
+│   │   ├── benchmark/             # Validador do conjunto de teste, executor A/B/C e métricas (R3)
+│   │   ├── testset/               # Modelo do CSV do conjunto de teste
+│   │   ├── tests/                 # Testes das ferramentas de benchmark (unittest)
+│   │   └── README.md              # Rastreabilidade dos índices (base_conhecimento_v1...) e benchmarks
 │   ├── monitoring/README.md       # Estratégia de observabilidade no PostgreSQL (ADR-008)
 │   └── README.md                  # Mapeamento dos 9 componentes MLOps (C1–C9) no projeto
 ├── docs/
@@ -395,7 +470,7 @@ Definidas em [.env.example](.env.example) (nunca commitar `.env` com segredos re
 ### 1. Extração de rótulos por OCR e regras (`APROVADO` no ADR-002 — implementação `PENDENTE`)
 
 1. **Dispositivo móvel:** recorta a tabela nutricional e comprime a imagem para JPEG (~1280 px, até 300 KB).
-2. **Pré-processamento (OpenCV):** conversão para escala de cinza, redução de ruídos, ajuste de contraste e binarização.
+2. **Pré-processamento (OpenCV):** conversão para escala de cinza, correção de inclinação e binarização.
 3. **OCR em CPU:** Tesseract (português) ou PaddleOCR, definido pelo benchmark da semana 4 (~30 fotos reais, meta ≥ 85% de acerto).
 4. **Extração e validação por regras:** expressões regulares extraem valor energético, carboidratos, açúcares totais e adicionados, proteínas, gorduras (totais, saturadas e trans), fibra, sódio, %VD e a seção `"ALÉRGICOS"`, normalizando para 100 g/ml e checando consistência (`açúcares totais <= carboidratos` e estimativa energética `4×C + 4×P + 9×G`).
 5. **Reserva multimodal e confirmação:** se a leitura falhar, aciona o LLM multimodal apenas nessa foto ou solicita correção ao usuário. **Em todos os casos, o usuário confirma os valores antes da análise.**
@@ -437,9 +512,14 @@ bash infra/scripts/check_compose.sh
 
 # 4. Executar smoke test automatizado (valida HTTP 200, JSON e contrato com enable_verifier=true e false)
 bash scripts/smoke_backend.sh
+
+# 5. Testes das ferramentas de benchmark (R3)
+cd mlops/experiments && python3 -m unittest discover -s tests -t .
 ```
 
-A pipeline do GitHub Actions em [.github/workflows/ci.yml](.github/workflows/ci.yml) executa automaticamente todas as etapas acima, além do build da imagem Docker do backend e teste do container em cada `push` e `pull_request`.
+A pipeline do GitHub Actions em [.github/workflows/ci.yml](.github/workflows/ci.yml) executa automaticamente as etapas 1 a 4, além do build da imagem Docker do backend e teste do container em cada `push` e `pull_request`. Os testes do benchmark (etapa 5) ainda não estão no CI.
+
+> **Windows:** com `core.autocrlf=true`, o Git converte as quebras de linha no checkout e `verify_baseline.py` acusa hash divergente localmente, embora o conteúdo commitado esteja correto (no CI, em Linux, passa).
 
 ---
 
@@ -461,7 +541,29 @@ Detalhes operacionais e requisitos para testes em celulares reais (HTTPS, limite
 
 ---
 
+## Riscos e mitigações
+
+| Risco | Impacto | Mitigação |
+|---|---|---|
+| Alucinação sobre nutrição | Alto | Citação obrigatória; números da base estruturada; verificação; "não há evidência suficiente" |
+| OCR erra (foto torta, borrada, reflexo, embalagem curva) | Alto | OpenCV; checagens de consistência; LLM com visão como reserva; confirmação do usuário |
+| Usuário trata a resposta como orientação médica | Alto | Aviso fixo; triagem; encaminhamento a profissional |
+| Alergênico não detectado (falso negativo) | Alto | Nunca afirmar "livre de alergênicos"; aviso para conferir a embalagem; medir acerto da linha "ALÉRGICOS" |
+| Verificador não compensa custo e latência | Médio | Decidir pelo benchmark; regras como alternativa gratuita |
+| App lento ou pesado no celular | Médio | Processamento no servidor; imagem comprimida; poucas chamadas ao LLM |
+| Projeto parecido demais com o Desafio 1 | Médio | Foco em decisão de compra e comparação, não em checagem de fatos |
+| Cota gratuita do Gemini esgota | Médio | Modelo alternativo; cache |
+| Dados pessoais de saúde | Médio | Não armazenar sem consentimento (LGPD) |
+
+---
+
 ## Limitações conhecidas
+
+**Decisões em aberto (`PENDENTE`):**
+- Qual OCR fica (Tesseract ou PaddleOCR), definido no benchmark da semana 4.
+- Modelo alternativo ao Gemini.
+- Aprovação das checagens extras de consistência sugeridas por R4 (comentadas no SQL; só "açúcares totais ≤ carboidratos" está ativa).
+- Contrato da API para separar as configurações B e C (proposta: campo `verifier_mode`) e informar as chamadas ao LLM por resposta (`llm_calls`).
 
 **Estado atual do código (`backend-whatsapp-v0.1.0`):**
 - **Agentes em modo simulado (mock):** `backend/graph.py` retorna resposta textual, fonte (`guia_alimentar_pag_45.pdf`), aviso e classificação fixos.
@@ -488,6 +590,9 @@ Detalhes operacionais e requisitos para testes em celulares reais (HTTPS, limite
 | **Caio Soares de Andrade** | **R6** DevOps + **R7** MLOps | Estrutura do repositório, preservação de baselines, Docker Compose, ambientes, CI/CD (GitHub Actions); versionamento de prompts, índices e configurações; deploy e monitoramento |
 
 ### Fontes oficiais previstas na base de conhecimento
+
+> **`PENDENTE`:** a lista foi montada de memória; versões e links ainda precisam ser conferidos ao baixar (R4). No banco, as 5 fontes viram 6 registros em `fontes_documentos` (RDC 429 e IN 75 separadas, porque os limites vêm da IN 75), todos `pendente_conferencia` em 14/11.
+
 - **Ministério da Saúde:** *Guia Alimentar para a População Brasileira* (2ª ed., 2014) — ChromaDB (RAG)
 - **ANVISA:** *RDC nº 429/2020* e *Instrução Normativa — IN nº 75/2020* (rotulagem nutricional e frontal "ALTO EM") — ChromaDB (texto) e PostgreSQL (limites numéricos)
 - **NEPA / Unicamp:** *Tabela Brasileira de Composição de Alimentos (TACO)* — PostgreSQL
