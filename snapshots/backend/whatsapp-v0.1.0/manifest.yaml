@@ -1,0 +1,110 @@
+baseline_id: "backend-whatsapp-v0.1.0"
+project: "Challenge 2 Berkanan"
+component: "backend"
+status: "IMPLEMENTADO_PARCIAL_ESQUELETO"
+technical_state: "Esqueleto funcional com dados simulados (mock)"
+
+origin:
+  channel: "Entrega compartilhada via WhatsApp (arquivo backend.zip / diretório backend)"
+  responsible_team: "Backend (R5 — Engenheiro de Software: Carlos; R2 — Arquiteto/Coordenador: João Victor)"
+  author_original_commits: "nao_registrado_na_origem_whatsapp"
+  original_file_timestamps_local: "2026-11-13T18:21:00-03:00 a 2026-11-13T19:11:00-03:00"
+
+preservation:
+  preserved_by: "Caio Soares de Andrade (R6 — Engenheiro DevOps / R7 — Engenheiro MLOps)"
+  captured_at: "2026-11-14T12:09:29-03:00"
+  git_baseline_commit: "28a8fa27516b77de81a5585f8aed4f0397f5a888"
+  snapshot_directory: "snapshots/backend/whatsapp-v0.1.0/original"
+  checksum_file: "snapshots/backend/whatsapp-v0.1.0/SHA256SUMS"
+  canonical_executable_location: "backend/"
+  naming_note: >
+    No arquivo compactado backend.zip local, o README veio nomeado como README.md.
+    No snapshot original foi preservado sob o nome de referência README(1).md
+    (idêntico byte a byte ao backend/README.md canônico).
+
+files:
+  - name: "README(1).md"
+    canonical_path: "backend/README.md"
+    snapshot_path: "snapshots/backend/whatsapp-v0.1.0/original/README(1).md"
+    size_bytes: 1525
+    sha256: "9734a331a3e16df24890ab558b887a5c3d4f29430541917975fc962e5b67a91f"
+    role: "Instruções locais de execução da API e do script de teste"
+  - name: "graph.py"
+    canonical_path: "backend/graph.py"
+    snapshot_path: "snapshots/backend/whatsapp-v0.1.0/original/graph.py"
+    size_bytes: 1710
+    sha256: "18f67b6912033694ebf6ea5a106fdff42cd932db2e03f1eacf4862b4c8ed461e"
+    role: "Definição do grafo de estados LangGraph (coordinator -> nutritional -> verifier opcional)"
+  - name: "main.py"
+    canonical_path: "backend/main.py"
+    snapshot_path: "snapshots/backend/whatsapp-v0.1.0/original/main.py"
+    size_bytes: 2001
+    sha256: "3199a946290c183c0c46d301ecd0093bcb4d0affde6804bff59ab9d93fbdeda4"
+    role: "Aplicação FastAPI exportada como 'api' com endpoint POST /api/analyze"
+  - name: "requirements.txt"
+    canonical_path: "backend/requirements.txt"
+    snapshot_path: "snapshots/backend/whatsapp-v0.1.0/original/requirements.txt"
+    size_bytes: 88
+    sha256: "d49e822669bc78ca665eaec939d0574b512d5a37fb4cb52aea9ee90dc02d116f"
+    role: "Dependências Python mínimas do esqueleto do backend"
+  - name: "schemas.py"
+    canonical_path: "backend/schemas.py"
+    snapshot_path: "snapshots/backend/whatsapp-v0.1.0/original/schemas.py"
+    size_bytes: 1570
+    sha256: "e426dc10eaf9af2c06783c18f93f6e29078d9660faec9c7567bce3c4aa889c3e"
+    role: "Contratos Pydantic de entrada e saída (AnalysisRequest, AnalysisResponse, etc.)"
+  - name: "state.py"
+    canonical_path: "backend/state.py"
+    snapshot_path: "snapshots/backend/whatsapp-v0.1.0/original/state.py"
+    size_bytes: 583
+    sha256: "7582b566b907aac90f383b1c34d638e5ceb2dc9a2a29e7d33c16836b3e1d7ac6"
+    role: "Definição de AgentState (TypedDict) compartilhado entre nós do LangGraph"
+  - name: "test_api.sh"
+    canonical_path: "backend/test_api.sh"
+    snapshot_path: "snapshots/backend/whatsapp-v0.1.0/original/test_api.sh"
+    size_bytes: 577
+    sha256: "862beace182134311c440861e2d3fe917dc261000e55b294eb5f6d90a2b2da74"
+    role: "Script bash manual com duas chamadas curl ao endpoint POST /api/analyze"
+
+identified_interfaces:
+  fastapi_app_object: "main:api"
+  http_endpoints:
+    - method: "POST"
+      path: "/api/analyze"
+      request_model: "AnalysisRequest"
+      response_model: "AnalysisResponse"
+  langgraph_workflow:
+    compiled_object: "graph:app"
+    entry_point: "coordinator"
+    nodes:
+      - "coordinator (coordinator_node)"
+      - "nutritional (nutritional_agent_node)"
+      - "verifier (verifier_agent_node)"
+    edges:
+      - "coordinator -> nutritional"
+      - "nutritional -> verifier (se enable_verifier == True) | END (se enable_verifier == False)"
+      - "verifier -> END"
+
+dependencies:
+  - "fastapi>=0.115.0"
+  - "uvicorn>=0.32.0"
+  - "pydantic>=2.9.0"
+  - "langgraph>=0.2.0"
+  - "langchain-core>=0.3.0"
+
+available_tests:
+  - path: "backend/test_api.sh"
+    description: >
+      Executa duas requisições POST /api/analyze via curl (com enable_verifier=true e
+      enable_verifier=false) e formata a saída com python3 -m json.tool. Não realiza
+      asserções automatizadas de código HTTP ou campos de contrato.
+
+known_limitations:
+  - "O nó nutritional_agent_node retorna texto, fontes (Guia Alimentar pág. 45), avisos e classificação fixos/simulados."
+  - "O nó coordinator_node retorna dicionário vazio sem roteamento condicional real por request_type (ocr_analysis, comparison, qa)."
+  - "O agente de comparação ainda não existe no grafo."
+  - "O nó verifier_agent_node apenas verifica se a lista matched_sources não está vazia; não realiza verificação por regras completas (Config. B) nem chamada real ao LLM (Config. C)."
+  - "Não há conexão nem integração com PostgreSQL (TACO, limites IN 75, produtos_lidos, metricas_requisicao)."
+  - "Não há conexão nem integração com ChromaDB ou modelo de embeddings."
+  - "Não há pré-processamento OpenCV nem execução de OCR (Tesseract/PaddleOCR); o campo image_base64 é apenas repassado ao estado."
+  - "O script test_api.sh não retorna código de saída de erro caso a API falhe ou retorne payload inválido."
