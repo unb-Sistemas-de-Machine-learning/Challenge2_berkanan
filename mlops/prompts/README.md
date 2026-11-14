@@ -1,6 +1,6 @@
-# Versionamento de Prompts — Challenge 2 Berkanan (R7)
+# Versionamento de Prompts — Challenge 2 Berkanan
 
-> **Status atual (14/11/2026):** Estrutura preparada por **R7 (Caio Soares de Andrade)**. Nenhum prompt nutricional foi criado nesta etapa em respeito à divisão de papéis (**R2 — João Victor**, **R3 — Gustavo** e **R5 — Carlos**).
+> **Status atual (14/11/2026):** Estrutura e convenção de versionamento preparadas. Os prompts de negócio e verificação devem ser adicionados pelos responsáveis pelos respectivos agentes (**R2 — João Victor**, **R3 — Gustavo** e **R5 — Carlos**) e rastreados no manifesto de execução (**R7 — Caio**).
 
 ---
 

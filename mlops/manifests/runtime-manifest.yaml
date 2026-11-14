@@ -1,7 +1,7 @@
 schema_version: "1.0"
 manifest_type: "mlops_runtime_configuration"
 project: "Challenge 2 Berkanan"
-maintained_by: "Caio Soares de Andrade (R7 — Engenheiro MLOps)"
+maintained_by: "Equipe Berkanan (R1 a R7 — Governança MLOps R7)"
 
 configuration:
   config_id: "cfg-baseline-whatsapp-v0.1.0"
