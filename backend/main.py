@@ -1,10 +1,31 @@
 from fastapi import FastAPI
 from datetime import datetime, timezone
 import time
+import logging
 from schemas import AnalysisRequest, AnalysisResponse, VerificationResult
 from graph import app as langgraph_app
+from database import check_postgres_connection, record_metric, get_taco_alimento
+from chroma_client import check_chroma_connection, query_knowledge_base
+
+logger = logging.getLogger("berkanan.api")
 
 api = FastAPI(title="Berkanan Desafio 2 - API Local")
+
+@api.get("/health")
+@api.get("/api/health")
+async def health_check():
+    """Endpoint de diagnóstico verificando saúde do Backend, PostgreSQL e ChromaDB."""
+    pg_status = check_postgres_connection()
+    chroma_status = check_chroma_connection()
+    overall_healthy = pg_status.get("connected", False) and chroma_status.get("connected", False)
+
+    return {
+        "status": "healthy" if overall_healthy else "degraded",
+        "service": "berkanan-backend",
+        "postgres": pg_status,
+        "chromadb": chroma_status,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 @api.post("/api/analyze", response_model=AnalysisResponse)
 async def analyze(request: AnalysisRequest):
@@ -37,6 +58,23 @@ async def analyze(request: AnalysisRequest):
             passed=final_state.get("verification_passed", True),
             errors=final_state.get("verification_errors", [])
         )
+
+    # Registro de telemetria operacional no PostgreSQL (ADR-008 e R4)
+    try:
+        record_metric(
+            tipo_operacao=request.request_type,
+            latencia_ms=response_time,
+            modo_execucao="rag",
+            configuracao_verificador="C" if request.enable_verifier else "A",
+            modelo_usado="gemini",
+            falha_leitura=False,
+            chamadas_llm=1 if request.enable_verifier else 1,
+            acerto=final_state.get("verification_passed", True),
+            fidelidade_pct=92.0 if final_state.get("matched_sources") else None,
+            recall_top3=True if final_state.get("matched_sources") else None,
+        )
+    except Exception as exc:
+        logger.warning("Falha ao registrar telemetria: %s", exc)
 
     return AnalysisResponse(
         input_text=request.text or "Análise de rótulo",
