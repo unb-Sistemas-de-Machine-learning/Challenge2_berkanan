@@ -155,8 +155,8 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
   - [x] Incorporar os arquivos de migração e seeds SQL neste repositório (`migrations/` e `seeds/`).
   - [x] Implementar módulos de integração com PostgreSQL (`backend/database.py`) e ChromaDB (`backend/chroma_client.py`).
   - [x] Documentar plano e matriz R4 em `docs/r4/documento_desafio2_r4.md` e `docs/r4/papel_R4_davi.xlsx`.
-  - [ ] Conferir links/versões das 5 fontes oficiais, carregar a TACO real e os 6 limites literais da IN 75/2020 no PostgreSQL.
-  - [ ] Indexar o texto integral dos documentos oficiais no ChromaDB (`base_conhecimento_v1` via `scripts/ingest_chroma.py`).
+  - [ ] Conferir conteúdo das 5 fontes oficiais (`status_conferencia = conferido`); TACO real (`007_carga_taco.sql`) e os 6 limites literais da IN 75/2020 (`008_limites_in75.sql`) já carregados no PostgreSQL.
+  - [x] Indexar o texto integral dos documentos oficiais no ChromaDB (`base_conhecimento_v1` via `scripts/ingest_chroma.py`, 811 trechos de 1000 chars / 150 overlap).
   - [ ] Implementar as regras de extração e checagens de consistência do OCR (semana 4).
 - **R5 (Carlos — Engenheiro de Software):**
   - [x] Entregar esqueleto inicial da API FastAPI e LangGraph (`backend-whatsapp-v0.1.0`).
