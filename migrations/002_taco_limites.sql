@@ -15,6 +15,14 @@
 --    de aferição em laboratório; não converter para 0.00.
 -- 2. "Tr" (Traços): Armazenado como NULL na base física (teor detectado, porém
 --    abaixo do limite de quantificação laboratorial).
+--
+-- ----------------------------------------------------------------------------
+-- NOTAS DE CARGA DA TACO:
+-- - Valores usam vírgula decimal e os códigos NA, Tr e * (conferir a legenda no PDF antes de decidir o tratamento e documentar a regra).
+-- - Células vazias somem na extração de texto e deslocam as colunas (ex.: alimento nº 160, manganês em branco); não carregar por posição, validar amostra contra o PDF.
+-- - Cada alimento aparece em duas páginas (composição centesimal; minerais e vitaminas): juntar pelo número do alimento.
+-- - Gordura saturada está na Tabela 2 (ácidos graxos), não na Tabela 1.
+-- - A TACO não traz açúcares totais nem adicionados.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS taco_alimentos (
     codigo_taco             VARCHAR(20) PRIMARY KEY,
