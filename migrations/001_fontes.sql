@@ -26,15 +26,18 @@ CREATE TABLE IF NOT EXISTS fontes_documentos (
     status_conferencia      VARCHAR(30) NOT NULL DEFAULT 'pendente_conferencia'
                             CHECK (status_conferencia IN ('pendente_conferencia', 'conferido', 'obsoleto')),
     observacoes             TEXT,
-    criado_em               TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    criado_em               TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_fontes_conferido_completo
+        CHECK (status_conferencia <> 'conferido'
+               OR (data_download IS NOT NULL AND conferido_por IS NOT NULL
+                   AND link IS NOT NULL AND versao IS NOT NULL))
 );
 
 COMMENT ON TABLE fontes_documentos IS 'Repositório de governança das fontes oficiais citadas no CLAUDE.md.';
 COMMENT ON COLUMN fontes_documentos.hash_arquivo IS 'SUGESTÃO do Davi, não aprovada pelo grupo (não consta no material).';
 COMMENT ON COLUMN fontes_documentos.data_download IS 'Data do download (NULL até a efetiva realização do download).';
 COMMENT ON COLUMN fontes_documentos.conferido_por IS 'Conferente da fonte (NULL até a efetiva conferência).';
-
-CREATE INDEX IF NOT EXISTS idx_fontes_documentos_doc ON fontes_documentos (documento);
 
 -- ----------------------------------------------------------------------------
 -- CARGA DAS 5 FONTES OFICIAIS DO CLAUDE.MD (SEÇÃO 6), EM 6 REGISTROS:
