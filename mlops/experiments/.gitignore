@@ -1,0 +1,4 @@
+results/mock_*/
+
+# Fotos de rótulos ficam fora do Git (tamanho e LGPD): ver testset/protocolo_fotos.md
+testset/fotos/

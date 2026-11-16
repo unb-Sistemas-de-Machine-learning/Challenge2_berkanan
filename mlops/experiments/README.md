@@ -58,3 +58,55 @@ Cada execução oficial de benchmark deve vincular seus resultados ao estado exa
 
 > [!CAUTION]
 > **Proibição de Dados Simulados como Resultado Experimental:** Nenhum resultado obtido com o backend ainda em modo mock (`backend-whatsapp-v0.1.0`) pode ser registrado como evidência de benchmark dos modelos ou do verificador.
+
+---
+
+## 3. Ferramentas do benchmark (`mlops/experiments/benchmark/`)
+
+> **Status:** `IMPLEMENTADO` (ferramentas) em 14/11/2026. Nenhum resultado oficial ainda: o backend está em modo mock e o conjunto de teste ainda não foi conferido nas fontes.
+
+Só biblioteca padrão do Python (sem dependências). Rodar de dentro de `mlops/experiments/`:
+
+```bash
+# 1. Validar o conjunto de teste exportado da planilha (CSV, vírgula ou ponto e vírgula)
+python -m benchmark.testset testset/conjunto_de_teste.csv --strict
+
+# 2. Executar contra a API (A/B/C, 3 repetições, como no ADR-005)
+python -m benchmark.run --testset testset/conjunto_de_teste.csv --configs A B C --reps 3 --api http://127.0.0.1:8000
+
+# 3. Corrigir results/<experimento>/correcao.csv (colunas correct, claims_total, claims_supported, refused)
+
+# 4. Calcular métricas e a decisão C x B
+python -m benchmark.metrics results/<experimento>/correcao.csv
+
+# Testes das ferramentas
+python -m unittest discover -s tests -t .
+```
+
+| Arquivo | Função |
+|---|---|
+| `benchmark/testset.py` | Valida colunas, IDs, prefixos A–G, quantidade por categoria e linhas com `Conferir na fonte = Sim` |
+| `benchmark/run.py` | Gera `run.json` (commit, status do manifesto, `official`), `respostas.jsonl` e `correcao.csv` |
+| `benchmark/metrics.py` | Acerto, fidelidade (afirmações sustentadas / totais), recusa correta (G), latência mediana, chamadas ao LLM e decisão `ADOTAR_C` / `MANTER_B` / `SEM_DADOS` |
+| `testset/conjunto_de_teste_modelo.csv` | Cabeçalho do CSV do conjunto de teste |
+
+**Regras de correção:**
+- Célula vazia = não corrigida (fica fora da média; nunca conta como 0).
+- `refused` só vale para a categoria G; o executor pré-preenche `1` quando a resposta contém "não há evidência suficiente", e o corretor confirma.
+- A latência registrada é a medida no cliente (inclui rede), não o `response_time_ms` do servidor.
+
+**Pendências de contrato com R2/R5 (`PROPOSTO`):**
+- Hoje a API só tem `enable_verifier`, então B e C são indistinguíveis. O executor já envia `verifier_mode: "rules" | "llm"` (ignorado pelo `backend/schemas.py` atual); falta a API implementar esse campo ou outro equivalente.
+- A resposta da API ainda não informa quantas chamadas ao LLM fez. O executor lê o campo `llm_calls` se ele existir.
+
+**Resultados:** pastas `results/mock_*` (backend em mock) não são versionadas. Só resultados oficiais (`run.json` com `"official": true`) entram no repositório.
+
+### 3.1 Benchmark de extração (`benchmark/extraction.py`)
+
+> **Status:** ferramenta `IMPLEMENTADO`; protocolo das fotos `PROPOSTO` em 14/11/2026; fotos e gabarito `PENDENTE`.
+
+Compara campo a campo o que cada motor de OCR leu com o gabarito digitado das fotos. Calcula o acerto (meta ≥ 85%), o recall da linha "ALÉRGICOS" (destacando falsos negativos) e o tempo mediano por foto. Protocolo das fotos, regras de digitação e formato que o pipeline de OCR deve entregar: [testset/protocolo_fotos.md](testset/protocolo_fotos.md).
+
+```bash
+python -m benchmark.extraction testset/gabarito_fotos.csv results/<experimento>/leituras.csv
+```
