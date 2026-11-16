@@ -1,169 +1,297 @@
 #!/usr/bin/env python3
-"""Script de ingestão da Feature Store vetorial ChromaDB (R4 - Engenheiro de Dados).
+"""Script versionado de ingestão da Feature Store vetorial ChromaDB (R4).
 
-Indexa trechos das 5 fontes oficiais na coleção versionada (base_conhecimento_v1):
-1. Guia Alimentar para a População Brasileira (MS)
+Indexa as fontes oficiais em JSON extraído por página (`data/fontes_rag/*.json`)
+na coleção versionada `base_conhecimento_v1` (ADR-001 e ADR-006):
+1. Guia Alimentar para a População Brasileira (MS, 2ª ed., 2014)
 2. RDC 429/2020 (ANVISA)
 3. IN 75/2020 (ANVISA)
-4. Diretrizes sobre açúcares e sódio (OMS)
-5. Diretrizes da Sociedade Brasileira de Diabetes (SBD)
+4. Diretrizes sobre açúcares e sódio — Sugars intake (OMS, 2015)
+5. OMS – Guideline: Sodium intake for adults and children (OMS, 2012)
+6. Diretrizes da Sociedade Brasileira de Diabetes (SBD)
 
-Metadados obrigatórios por trecho (conforme CLAUDE.md Seção 6.2):
-- documento
-- fonte_id
-- arquivo
-- pagina
-- versao_indice
+Parâmetros de segmentação (CLAUDE.md Seção 6.2):
+- Trechos de até 1000 caracteres com 150 caracteres de sobreposição.
+- Metadados obrigatórios por trecho:
+  `documento`, `fonte_id`, `arquivo`, `pagina`, `versao_indice` (além de `link`).
 """
 
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import logging
 import os
 import sys
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("berkanan.ingest_chroma")
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_SOURCES_DIR = REPO_ROOT / "data" / "fontes_rag"
+
 CHROMA_HOST = os.getenv("CHROMA_HOST", "127.0.0.1")
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
 CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "base_conhecimento_v1")
 
-# Documentos oficiais e trechos canônicos de referência inicial para o RAG
-EXCERPTS_INICIAIS: list[dict[str, Any]] = [
-    {
-        "id": "guia_alimentar_c1_01",
-        "documento": "Guia Alimentar para a População Brasileira",
-        "fonte_id": 1,
-        "arquivo": "guia_alimentar_2014.pdf",
-        "pagina": 45,
-        "versao_indice": "base_conhecimento_v1",
-        "link": "https://www.gov.br/saude/pt-br/assuntos/saude-brasil/publicacoes-para-promocao-a-saude/guia_alimentar_populacao_brasileira_2ed.pdf",
-        "text": (
-            "Capítulo 2: A regra de ouro é fazer de alimentos in natura ou minimamente processados a base da alimentação. "
-            "Limite o consumo de alimentos processados e evite o consumo de alimentos ultraprocessados. "
-            "Alimentos ultraprocessados são formulações industriais feitas inteiramente ou majoritariamente de substâncias "
-            "extraídas de alimentos (óleos, gorduras, açúcar, amido, proteínas), derivadas de constituintes de alimentos "
-            "ou sintetizadas em laboratório com base em matérias orgânicas como petróleo e carvão (corantes, aromatizantes, "
-            "realçadores de sabor e vários tipos de aditivos)."
-        ),
-    },
-    {
-        "id": "anvisa_in75_rotulagem_01",
-        "documento": "IN 75/2020",
-        "fonte_id": 3,
-        "arquivo": "in_75_2020_anvisa.pdf",
-        "pagina": 12,
-        "versao_indice": "base_conhecimento_v1",
-        "link": "https://www.in.gov.br/en/web/dou/-/instrucao-normativa-in-n-75-de-8-de-outubro-de-2020-282303074",
-        "text": (
-            "Instrução Normativa IN nº 75/2020: Estabelece os requisitos técnicos para declaração da rotulagem nutricional "
-            "nos alimentos embalados. Define os limites de corte para a rotulagem nutricional frontal (lupas de 'ALTO EM'): "
-            "Para alimentos sólidos ou semissólidos: Açúcares adicionados: 15 g por 100 g; Gorduras saturadas: 6 g por 100 g; "
-            "Sódio: 600 mg por 100 g. Para alimentos líquidos: Açúcares adicionados: 7,5 g por 100 ml; Gorduras saturadas: "
-            "3 g por 100 ml; Sódio: 300 mg por 100 ml. A rotulagem frontal visa esclarecer o consumidor sobre o alto teor de "
-            "nutrientes associados a doenças crônicas não transmissíveis."
-        ),
-    },
-    {
-        "id": "anvisa_rdc429_alergenicos_01",
-        "documento": "RDC 429/2020",
-        "fonte_id": 2,
-        "arquivo": "rdc_429_2020_anvisa.pdf",
-        "pagina": 8,
-        "versao_indice": "base_conhecimento_v1",
-        "link": "https://www.in.gov.br/en/web/dou/-/resolucao-de-diretoria-colegiada-rdc-n-429-de-8-de-outubro-de-2020-282305411",
-        "text": (
-            "Resolução RDC nº 429/2020 e normas complementares de rotulagem de alergênicos (RDC nº 727/2022 / RDC nº 26/2015): "
-            "Os alimentos que contenham ou derivem dos principais alimentos que causam alergias alimentares devem veicular "
-            "as declarações 'ALÉRGICOS: CONTÉM (nomes comuns dos alimentos)', 'ALÉRGICOS: CONTÉM DERIVADOS DE...' ou "
-            "'ALÉRGICOS: PODE CONTER...'. O sistema nunca deve afirmar que um alimento é 'livre de alergênicos', pois há risco "
-            "de contaminação cruzada industrial; a conferência da embalagem física pelo consumidor é indispensável."
-        ),
-    },
-    {
-        "id": "oms_acucares_sodio_01",
-        "documento": "Diretrizes sobre açúcares e sódio",
-        "fonte_id": 5,
-        "arquivo": "guideline_sugars_sodium_who.pdf",
-        "pagina": 4,
-        "versao_indice": "base_conhecimento_v1",
-        "link": "https://www.who.int/publications/i/item/9789241549028",
-        "text": (
-            "Diretrizes da Organização Mundial da Saúde (OMS): A OMS recomenda fortemente a redução do consumo diário de "
-            "açúcares livres para menos de 10% da ingestão calórica total diária em crianças e adultos. Uma redução adicional "
-            "para menos de 5% (cerca de 25 g ao dia para um adulto) proporciona benefícios adicionais à saúde cardiovascular "
-            "e dentária. Quanto ao sódio, a OMS recomenda uma ingestão máxima de 2.000 mg de sódio por dia (equivalente a 5 g de sal), "
-            "para controle da pressão arterial e redução do risco de doenças cardiovasculares."
-        ),
-    },
-    {
-        "id": "sbd_diabetes_avisos_01",
-        "documento": "Diretrizes da Sociedade Brasileira de Diabetes (SBD)",
-        "fonte_id": 6,
-        "arquivo": "diretrizes_sbd_2023.pdf",
-        "pagina": 30,
-        "versao_indice": "base_conhecimento_v1",
-        "link": "https://diretriz.diabetes.org.br",
-        "text": (
-            "Diretrizes da Sociedade Brasileira de Diabetes (SBD) — Uso estrito a avisos para pessoas com diabetes: "
-            "O consumo de carboidratos de rápida absorção e açúcares adicionados deve ser estritamente monitorado por indivíduos "
-            "com diagnóstico de Diabetes Mellitus. A contagem de carboidratos é a estratégia padrão para ajuste prandial de insulina "
-            "e controle glicêmico. O sistema não prescreve dietas nem doses medicamentosas, servindo exclusivamente como guia "
-            "educativo para identificação de açúcares ocultos e carboidratos no rótulo."
-        ),
-    },
-]
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
+BATCH_SIZE = 64
+
+# Fallback determinístico caso o PostgreSQL não esteja acessível durante ingestão offline
+FALLBACK_FONTE_IDS: dict[str, int] = {
+    "Guia Alimentar para a População Brasileira": 1,
+    "RDC 429/2020": 2,
+    "IN 75/2020": 3,
+    "Diretrizes sobre açúcares e sódio": 5,
+    "Diretrizes da Sociedade Brasileira de Diabetes (SBD)": 6,
+    "OMS – Guideline: Sodium intake for adults and children": 7,
+}
 
 
-def _get_or_create_collection(client: Any, collection_name: str, host: str, port: int) -> Any:
+@dataclass(frozen=True)
+class ChunkRecord:
+    """Trecho segmentado pronto para indexação no ChromaDB."""
+
+    chunk_id: str
+    text: str
+    metadata: dict[str, Any]
+
+
+def resolve_fonte_ids_from_db() -> dict[str, int]:
+    """Busca o mapeamento documento -> id em fontes_documentos, com fallback seguro."""
+    mapping = dict(FALLBACK_FONTE_IDS)
+    try:
+        import psycopg2  # type: ignore
+
+        conn = psycopg2.connect(
+            host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
+            port=int(os.getenv("POSTGRES_PORT", "5432")),
+            dbname=os.getenv("POSTGRES_DB", "berkanan_dev"),
+            user=os.getenv("POSTGRES_USER", "berkanan_user"),
+            password=os.getenv("POSTGRES_PASSWORD", "dev_only_change_me"),
+            connect_timeout=3,
+        )
+        with conn, conn.cursor() as cur:
+            cur.execute("SELECT id, documento FROM fontes_documentos;")
+            for row_id, doc_name in cur.fetchall():
+                mapping[str(doc_name)] = int(row_id)
+        conn.close()
+        logger.info("Mapeamento fonte_id sincronizado com PostgreSQL (%d fontes).", len(mapping))
+    except Exception as exc:
+        logger.info("PostgreSQL indisponível (%s); usando fallback canônico de fonte_id.", exc)
+    return mapping
+
+
+def chunk_document_pages(
+    pages: list[dict[str, Any]],
+    chunk_size: int = CHUNK_SIZE,
+    overlap: int = CHUNK_OVERLAP,
+) -> list[tuple[int, str]]:
+    """Segmenta páginas contínuas em trechos de `chunk_size` com `overlap` caracteres.
+
+    Retorna lista de `(pagina_inicial, texto_trecho)` rastreando a página exata onde
+    cada trecho se inicia.
+    """
+    if overlap >= chunk_size:
+        raise ValueError("overlap deve ser estritamente menor que chunk_size")
+
+    full_parts: list[str] = []
+    page_starts: list[int] = []
+    page_nums: list[int] = []
+    cursor = 0
+
+    for entry in pages:
+        txt = str(entry.get("texto", "")).strip()
+        if not txt:
+            continue
+        if full_parts:
+            full_parts.append("\n\n")
+            cursor += 2
+        page_starts.append(cursor)
+        page_nums.append(int(entry["pagina"]))
+        full_parts.append(txt)
+        cursor += len(txt)
+
+    full_text = "".join(full_parts)
+    total_len = len(full_text)
+    if total_len == 0:
+        return []
+
+    chunks: list[tuple[int, str]] = []
+    pos = 0
+    while pos < total_len:
+        raw_end = min(pos + chunk_size, total_len)
+        end = raw_end
+
+        # Evita cortar palavras ao meio quando não é o último trecho
+        if raw_end < total_len:
+            ws_pos = full_text.rfind(" ", pos + chunk_size - 120, raw_end)
+            nl_pos = full_text.rfind("\n", pos + chunk_size - 120, raw_end)
+            split_at = max(ws_pos, nl_pos)
+            if split_at > pos + overlap:
+                end = split_at
+
+        snippet = full_text[pos:end].strip()
+        if snippet:
+            p_idx = bisect.bisect_right(page_starts, pos) - 1
+            pagina = page_nums[max(0, p_idx)]
+            chunks.append((pagina, snippet))
+
+        if end >= total_len:
+            break
+        pos = max(pos + 1, end - overlap)
+
+    return chunks
+
+
+def load_chunks_from_sources(
+    sources_dir: Path,
+    collection_name: str,
+    fonte_ids: dict[str, int],
+    chunk_size: int = CHUNK_SIZE,
+    overlap: int = CHUNK_OVERLAP,
+) -> list[ChunkRecord]:
+    """Lê todos os arquivos JSON de `sources_dir` e produz os ChunkRecords."""
+    json_files = sorted(sources_dir.glob("*.json"))
+    if not json_files:
+        raise FileNotFoundError(f"Nenhum arquivo .json encontrado em {sources_dir}")
+
+    all_records: list[ChunkRecord] = []
+    for jf in json_files:
+        data = json.loads(jf.read_text(encoding="utf-8"))
+        doc_name = str(data["documento"])
+        arquivo = str(data["arquivo"])
+        link = str(data["link"])
+        if doc_name not in fonte_ids:
+            raise KeyError(f"fonte_id não encontrado para documento={doc_name!r}")
+        fonte_id = fonte_ids[doc_name]
+
+        page_chunks = chunk_document_pages(
+            data.get("paginas", []), chunk_size=chunk_size, overlap=overlap
+        )
+        slug = jf.stem
+        for idx, (pagina, text) in enumerate(page_chunks, 1):
+            all_records.append(
+                ChunkRecord(
+                    chunk_id=f"{slug}_p{pagina:03d}_c{idx:04d}",
+                    text=text,
+                    metadata={
+                        "documento": doc_name,
+                        "fonte_id": fonte_id,
+                        "arquivo": arquivo,
+                        "pagina": pagina,
+                        "versao_indice": collection_name,
+                        "link": link,
+                    },
+                )
+            )
+        logger.info(
+            "Fonte %-48s | arquivo=%-42s | trechos=%d",
+            doc_name,
+            arquivo,
+            len(page_chunks),
+        )
+
+    return all_records
+
+
+def _get_or_create_collection(
+    client: Any, collection_name: str, host: str, port: int, recreate: bool
+) -> Any:
+    if recreate:
+        try:
+            client.delete_collection(name=collection_name)
+            logger.info("Coleção anterior '%s' removida para reindexação limpa.", collection_name)
+        except Exception:
+            pass
+
     try:
         return client.get_collection(name=collection_name)
     except Exception:
-        import urllib.request
-        url = f"http://{host}:{port}/api/v1/collections"
-        req = urllib.request.Request(
-            url,
-            data=json.dumps({"name": collection_name, "metadata": {"description": "Feature Store Vetorial"}}).encode(),
-            headers={"Content-Type": "application/json"},
-        )
-        urllib.request.urlopen(req, timeout=5)
-        return client.get_collection(name=collection_name)
+        try:
+            return client.create_collection(
+                name=collection_name,
+                metadata={
+                    "hnsw:space": "cosine",
+                    "description": "Feature Store Vetorial - Fontes Oficiais (1000 chars, overlap 150)",
+                },
+            )
+        except Exception:
+            url = f"http://{host}:{port}/api/v1/collections"
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(
+                    {
+                        "name": collection_name,
+                        "metadata": {
+                            "hnsw:space": "cosine",
+                            "description": "Feature Store Vetorial",
+                        },
+                    }
+                ).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            urllib.request.urlopen(req, timeout=5)
+            return client.get_collection(name=collection_name)
 
 
-def ingest(collection_name: str = CHROMA_COLLECTION, host: str = CHROMA_HOST, port: int = CHROMA_PORT) -> int:
-    """Realiza a indexação dos trechos iniciais das fontes oficiais no ChromaDB."""
-    logger.info("Conectando ao ChromaDB em %s:%d (coleção: %s)...", host, port, collection_name)
+def ingest(
+    collection_name: str = CHROMA_COLLECTION,
+    host: str = CHROMA_HOST,
+    port: int = CHROMA_PORT,
+    sources_dir: Path = DEFAULT_SOURCES_DIR,
+    recreate: bool = False,
+    chunk_size: int = CHUNK_SIZE,
+    overlap: int = CHUNK_OVERLAP,
+) -> int:
+    """Executa a segmentação e indexação das fontes oficiais no ChromaDB."""
+    fonte_ids = resolve_fonte_ids_from_db()
+    records = load_chunks_from_sources(
+        sources_dir=sources_dir,
+        collection_name=collection_name,
+        fonte_ids=fonte_ids,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+    logger.info(
+        "Conectando ao ChromaDB em %s:%d (coleção: %s, total de trechos: %d)...",
+        host,
+        port,
+        collection_name,
+        len(records),
+    )
 
     try:
         import chromadb
+
         client = chromadb.HttpClient(host=host, port=port)
     except Exception as exc:
         logger.error("Não foi possível conectar via cliente ChromaDB nativo: %s", exc)
         return 1
 
     try:
-        col = _get_or_create_collection(client, collection_name, host, port)
-
-        ids = [doc["id"] for doc in EXCERPTS_INICIAIS]
-        documents = [doc["text"] for doc in EXCERPTS_INICIAIS]
-        metadatas = [
-            {
-                "documento": doc["documento"],
-                "fonte_id": doc["fonte_id"],
-                "arquivo": doc["arquivo"],
-                "pagina": doc["pagina"],
-                "versao_indice": doc["versao_indice"],
-                "link": doc["link"],
-            }
-            for doc in EXCERPTS_INICIAIS
-        ]
-
-        col.upsert(ids=ids, documents=documents, metadatas=metadatas)
-        logger.info("✓ Sucesso: %d trechos indexados na coleção '%s'.", len(ids), collection_name)
+        col = _get_or_create_collection(client, collection_name, host, port, recreate=recreate)
+        for i in range(0, len(records), BATCH_SIZE):
+            batch = records[i : i + BATCH_SIZE]
+            col.upsert(
+                ids=[r.chunk_id for r in batch],
+                documents=[r.text for r in batch],
+                metadatas=[r.metadata for r in batch],
+            )
+        total_in_col = col.count()
+        logger.info(
+            "✓ Sucesso: %d trechos indexados (total na coleção '%s': %d).",
+            len(records),
+            collection_name,
+            total_in_col,
+        )
         return 0
     except Exception as exc:
         logger.error("Falha durante indexação no ChromaDB: %s", exc)
@@ -175,7 +303,29 @@ if __name__ == "__main__":
     parser.add_argument("--host", default=CHROMA_HOST, help="Host do ChromaDB")
     parser.add_argument("--port", type=int, default=CHROMA_PORT, help="Porta do ChromaDB")
     parser.add_argument("--collection", default=CHROMA_COLLECTION, help="Nome da coleção versionada")
+    parser.add_argument(
+        "--sources-dir",
+        type=Path,
+        default=DEFAULT_SOURCES_DIR,
+        help="Diretório com os JSONs de páginas extraídas das fontes",
+    )
+    parser.add_argument(
+        "--recreate",
+        action="store_true",
+        help="Recria a coleção antes da ingestão (remove trechos antigos/mockados)",
+    )
+    parser.add_argument("--chunk-size", type=int, default=CHUNK_SIZE, help="Tamanho máximo do trecho")
+    parser.add_argument("--overlap", type=int, default=CHUNK_OVERLAP, help="Sobreposição entre trechos")
     args = parser.parse_args()
 
-    sys.exit(ingest(args.collection, args.host, args.port))
-
+    sys.exit(
+        ingest(
+            collection_name=args.collection,
+            host=args.host,
+            port=args.port,
+            sources_dir=args.sources_dir,
+            recreate=args.recreate,
+            chunk_size=args.chunk_size,
+            overlap=args.overlap,
+        )
+    )
