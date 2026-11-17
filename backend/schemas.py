@@ -17,6 +17,11 @@ class AnalysisRequest(BaseModel):
     product_ids: Optional[List[str]] = None
     user_profile: UserProfile = Field(default_factory=UserProfile)
     enable_verifier: bool = True
+    verifier_mode: Optional[Literal["rules", "llm"]] = None
+    modo_execucao: Literal["rag", "llm_puro"] = "rag"
+    categoria_teste: Optional[str] = None
+    id_questao_teste: Optional[str] = None
+    versao_ocr: Optional[str] = None
 
 class MatchedSource(BaseModel):
     text: str

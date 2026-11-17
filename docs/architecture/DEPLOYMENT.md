@@ -13,8 +13,8 @@ Este documento detalha a infraestrutura de containers implementada para o **Chal
 flowchart LR
     Mobile["Navegador Mobile (React/Vite - PENDENTE)"] -->|"HTTP/HTTPS :8000 (JSON / JPEG <= 300KB)"| Backend["berkanan-backend (FastAPI + LangGraph)"]
     subgraph Rede Interna Docker ["berkanan_internal (bridge)"]
-        Backend -.->|"Porta 5432 (Integração de código PENDENTE)"| Postgres[("berkanan-postgres (PostgreSQL 16.4)")]
-        Backend -.->|"Porta 8000 interna (Integração de código PENDENTE)"| Chroma[("berkanan-chromadb (ChromaDB 0.5.20)")]
+        Backend -->|"Porta 5432 (backend/database.py)"| Postgres[("berkanan-postgres (PostgreSQL 16.4)")]
+        Backend -->|"Porta 8000 interna (backend/chroma_client.py)"| Chroma[("berkanan-chromadb (ChromaDB 0.5.20)")]
     end
     Postgres --- VolPG[("Volume: postgres_data")]
     Chroma --- VolChroma[("Volume: chroma_data")]
@@ -24,13 +24,13 @@ flowchart LR
 
 | Serviço | Imagem / Build | Porta Interna | Porta Host (padrão local) | Volume Persistente | Status da Integração no Código |
 |---|---|---|---|---|---|
-| `backend` | Build local (`./backend/Dockerfile`, base `python:3.12.7-slim-bookworm`) | `8000` | `127.0.0.1:8000` | Sem estado (stateless) | `IMPLEMENTADO` (esqueleto `main:api` com `POST /api/analyze`) |
-| `postgres` | `postgres:16.4-alpine` | `5432` | `127.0.0.1:5432` | `postgres_data` | `PENDENTE` (container ativo; o código do backend v0.1.0 ainda não abre conexão SQL) |
-| `chromadb` | `chromadb/chroma:0.5.20` | `8000` | `127.0.0.1:8001` | `chroma_data` | `PENDENTE` (container ativo; o código do backend v0.1.0 ainda não consulta vetores) |
+| `backend` | Build local (`./backend/Dockerfile`, base `python:3.12.7-slim-bookworm`) | `8000` | `127.0.0.1:8000` | Sem estado (stateless) | `IMPLEMENTADO` (esqueleto `main:api` com `POST /api/analyze`, `/health`, telemetria) |
+| `postgres` | `postgres:16.4-alpine` | `5432` | `127.0.0.1:5432` | `postgres_data` | `IMPLEMENTADO` (migrações 001–004 montadas em `/docker-entrypoint-initdb.d`, `database.py`) |
+| `chromadb` | `chromadb/chroma:0.5.20` | `8000` | `127.0.0.1:8001` | `chroma_data` | `IMPLEMENTADO` (`chroma_client.py`, `scripts/ingest_chroma.py`, coleção `base_conhecimento_v1`) |
 | `frontend` | *Não incluído ainda* | — | — | — | `PENDENTE` (será adicionado quando R5 entregar o projeto React/Vite) |
 
-> [!WARNING]
-> **Transparência Arquitetural:** A presença dos serviços `postgres` e `chromadb` no [compose.yaml](../../compose.yaml) prepara o ambiente de execução conforme o **ADR-001**, mas **não significa que a API FastAPI já esteja consultando esses bancos**. No baseline atual (`backend-whatsapp-v0.1.0`), `backend/graph.py` retorna dados simulados em memória.
+> [!NOTE]
+> **Integração de Dados (Handoff R4):** As migrações 001–004 (`migrations/`) e os módulos de dados no backend conectam a API FastAPI tanto à Feature Store relacional (PostgreSQL) para cálculos exatos e telemetria quanto à Feature Store vetorial (ChromaDB) para citações RAG.
 
 ---
 
