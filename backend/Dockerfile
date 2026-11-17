@@ -16,7 +16,7 @@ RUN groupadd --gid 10001 appgroup && \
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY --chown=appuser:appgroup main.py graph.py schemas.py state.py README.md test_api.sh /app/
+COPY --chown=appuser:appgroup main.py graph.py schemas.py state.py coordinator.py comparison_agent.py verifier_agent.py database.py chroma_client.py README.md test_api.sh /app/
 
 USER appuser
 

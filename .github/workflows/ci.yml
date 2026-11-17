@@ -43,7 +43,7 @@ jobs:
 
       - name: Validar sintaxe Python (backend e scripts)
         run: |
-          python3 -m py_compile backend/main.py backend/graph.py backend/schemas.py backend/state.py scripts/verify_baseline.py
+          python3 -m py_compile backend/main.py backend/graph.py backend/schemas.py backend/state.py backend/database.py backend/chroma_client.py scripts/verify_baseline.py scripts/verify_db_integration.py scripts/ingest_chroma.py
 
       - name: Executar smoke tests da API FastAPI
         run: bash scripts/smoke_backend.sh
