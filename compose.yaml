@@ -67,6 +67,7 @@ services:
       - ./migrations/007_carga_taco.sql:/docker-entrypoint-initdb.d/007_carga_taco.sql:ro
       - ./migrations/008_limites_in75.sql:/docker-entrypoint-initdb.d/008_limites_in75.sql:ro
       - ./migrations/009_fontes_oms.sql:/docker-entrypoint-initdb.d/009_fontes_oms.sql:ro
+      - ./migrations/010_conferencia_fontes.sql:/docker-entrypoint-initdb.d/010_conferencia_fontes.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-berkanan_user} -d $${POSTGRES_DB:-berkanan_dev}"]
       interval: 10s
