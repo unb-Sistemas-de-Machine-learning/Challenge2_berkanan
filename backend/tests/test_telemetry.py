@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from main import _build_telemetry_payload
 from schemas import AnalysisRequest
@@ -8,9 +9,10 @@ class TestTelemetryPayload(unittest.TestCase):
     """Valida alinhamento das colunas gravadas em metricas_requisicao (ADR-008 / 004_metricas.sql)."""
 
     def test_config_a_ocr_defaults(self):
-        req = AnalysisRequest(request_type="ocr_analysis", enable_verifier=False)
-        state = {"classification_tone": "SAUDAVEL", "verification_passed": True, "verification_errors": []}
-        payload = _build_telemetry_payload(req, state, 145)
+        with patch.dict("os.environ", {"OCR_ENGINE": "nao_configurado"}):
+            req = AnalysisRequest(request_type="ocr_analysis", enable_verifier=False)
+            state = {"classification_tone": "SAUDAVEL", "verification_passed": True, "verification_errors": []}
+            payload = _build_telemetry_payload(req, state, 145)
 
         self.assertEqual(payload["tipo_operacao"], "extracao_ocr")
         self.assertEqual(payload["latencia_ms"], 145)
