@@ -3,6 +3,8 @@ from typing import TypedDict, List, Optional, Dict, Any
 class AgentState(TypedDict):
     request_type: str
     enable_verifier: bool
+    verifier_mode: str
+    llm_calls: int
     text_query: Optional[str]
     image_base64: Optional[str]
     product_ids: Optional[List[str]]
