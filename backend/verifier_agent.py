@@ -1,5 +1,6 @@
 
 import math
+import os
 from typing import Any, Dict, List
 
 from state import AgentState
@@ -127,3 +128,67 @@ def verifier_agent_node(state: AgentState) -> Dict[str, Any]:
         "verification_passed": passed,
         "verification_errors": errors
     }
+
+
+def verifier_agent_llm_node(state: AgentState) -> Dict[str, Any]:
+    """Verificador semântico Configuração C (LLM)."""
+    print("-> Verificador LLM (Config C) checando alucinações...")
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key.startswith("replace_with"):
+        return {
+            "verification_passed": False,
+            "verification_errors": [
+                "Configuração C indisponível: GEMINI_API_KEY não configurada."
+            ],
+            "llm_calls": state.get("llm_calls", 0),
+        }
+
+    model_name = os.getenv("LLM_MODEL", "").strip()
+    if not model_name or model_name == "not_configured":
+        return {
+            "verification_passed": False,
+            "verification_errors": [
+                "Configuração C indisponível: LLM_MODEL não configurada no ambiente."
+            ],
+            "llm_calls": state.get("llm_calls", 0),
+        }
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=8000),
+        )
+        prompt = f"""
+Resposta gerada:
+{state.get("draft_response")}
+
+Fontes usadas:
+{state.get("matched_sources")}
+
+A resposta está 100% suportada pelas fontes?
+Responda apenas 'SIM' ou 'NAO'.
+"""
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+        )
+        passed = "SIM" in (response.text or "").upper()
+        return {
+            "verification_passed": passed,
+            "verification_errors": [] if passed else [
+                "O LLM detectou afirmações sem suporte nas fontes."
+            ],
+            "llm_calls": state.get("llm_calls", 0) + 1,
+        }
+    except Exception as exc:
+        return {
+            "verification_passed": False,
+            "verification_errors": [
+                f"Falha ao executar o verificador LLM: {exc}"
+            ],
+            "llm_calls": state.get("llm_calls", 0),
+        }
