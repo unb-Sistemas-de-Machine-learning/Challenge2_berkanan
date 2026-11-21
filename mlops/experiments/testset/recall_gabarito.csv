@@ -1,0 +1,34 @@
+ID,documento_esperado,trechos_chave,pagina_referencia,observacao
+A01,Guia Alimentar para a População Brasileira,quatro categorias de alimentos,26-27,
+A02,Guia Alimentar para a População Brasileira,a regra de ouro. prefira sempre alimentos in natura,51,
+A03,Guia Alimentar para a População Brasileira,alimentos ultraprocessados são formulações industriais || formulações industriais feitas inteiramente ou majoritariamente,42,
+A04,Guia Alimentar para a População Brasileira,"utilize óleos, gorduras, sal e açúcar em pequenas quantidades","34, 50",
+A05,Guia Alimentar para a População Brasileira,limite o uso de alimentos processados || pães de forma,"37, 42, 50",Pão de forma é ultraprocessado (p. 42)
+A06,Guia Alimentar para a População Brasileira,frequentemente cinco ou mais,41,
+A07,Guia Alimentar para a População Brasileira,"exemplos incluem refrigerantes, biscoitos recheados || como biscoitos recheados","27, 51",
+A08,Guia Alimentar para a População Brasileira,feijão de todas as cores || arroz branco,30,
+A09,Guia Alimentar para a População Brasileira,"ser crítico quanto a informações, orientações e mensagens sobre alimentação",129,Passo 10
+A10,Guia Alimentar para a População Brasileira,dez passos para uma alimentação adequada e saudável,"14, 126",
+B01,RDC 429/2020,a tabela de informação nutricional deve conter a declaração das quantidades de,3-4,Art. 5º
+B02,RDC 429/2020,"100 gramas (g), para sólidos ou semissólidos, ou 100 mililitros (ml), para líquidos",5,Art. 8º
+B03,RDC 429/2020,a declaração da rotulagem nutricional frontal é obrigatória,8,Art. 18
+B04,IN 75/2020,maior ou igual a 15 g de açúcares adicionados por 100 g,19,Anexo XV
+B05,IN 75/2020,maior ou igual a 6 g de gorduras saturadas por 100 g,19,Anexo XV; texto embaralhado na base até a issue #27
+B06,IN 75/2020,maior ou igual a 600 mg de sódio por 100 g,19,Anexo XV
+B07,IN 75/2020,"maior ou igual a 7,5 g de açúcares adicionados por 100 ml || maior ou igual a 300 mg de sódio por 100 ml",19,Anexo XV
+B08,RDC 429/2020,açúcares adicionados: todos os monossacarídeos e dissacarídeos || açúcares totais: todos os monossacarídeos,1,Art. 2º
+B09,RDC 429/2020,entra em vigor após decorridos 24 (vinte e quatro) meses || prazo de 12 (doze) meses para adequação,14-15,Arts. 50 e 51
+B10,RDC 429/2020,adicionalmente em %vd,6,Art. 12
+B10,IN 75/2020,2.000 kcal,3,Anexo II (alternativa)
+D04,Guia Alimentar para a População Brasileira,iogurte (sem adição de açúcar) || iogurtes e bebidas lácteas adoçados e aromatizados,"30, 42",
+E01,RDC 727/2022,alérgicos: contém || alérgicos: pode conter,,Arts. 13 e 14; fonte incluída pela decisão da #20
+E02,Lei 10.674/2003,contém glúten,,Art. 1º; fonte incluída pela decisão da #20
+E04,RDC 727/2022,contém lactose,,Art. 18; fonte incluída pela decisão da #20
+E05,RDC 727/2022,alérgicos: pode conter,,Art. 14; fonte incluída pela decisão da #20
+F01,Diretrizes sobre açúcares e sódio; OMS – Guideline: Sugars intake for adults and children,less than 10% of total energy intake || below 5% of total energy intake,"11, 12, 24",Nome da fonte muda na issue #26
+F02,OMS – Guideline: Sodium intake for adults and children,<2 g/day sodium (5 g/day salt),"10, 26",
+F03,"IN 75/2020",maior ou igual a 15 g de açúcares adicionados por 100 g,19,ALTO EM (alternativa)
+F03,Diretrizes da Sociedade Brasileira de Diabetes (SBD),"acompanhamento individualizado da terapia nutricional, com nutricionista",1,Encaminhamento (alternativa)
+F04,IN 75/2020,maior ou igual a 600 mg de sódio por 100 g,19,ALTO EM (alternativa)
+F04,OMS – Guideline: Sodium intake for adults and children,<2 g/day sodium (5 g/day salt),"10, 26",OMS (alternativa)
+F05,IN 75/2020,2.000 kcal,3,Anexo II

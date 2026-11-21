@@ -110,3 +110,14 @@ Compara campo a campo o que cada motor de OCR leu com o gabarito digitado das fo
 ```bash
 python -m benchmark.extraction testset/gabarito_fotos.csv results/<experimento>/leituras.csv
 ```
+
+### 3.2 Recall da recuperação (`benchmark/recall.py`)
+
+> **Status:** ferramenta `IMPLEMENTADO` em 17/11/2026; medição oficial `PENDENTE` (aguarda as issues #27 e #20 na base).
+
+Faz cada pergunta do conjunto ao ChromaDB com a mesma função do backend (`query_knowledge_base`) e conta acerto quando um dos k primeiros trechos é do documento esperado **e** contém, literalmente, um trecho-chave de [testset/recall_gabarito.csv](testset/recall_gabarito.csv). Meta: ≥ 80% no top 3. Erro de conexão interrompe a medição em vez de contar como "não recuperou".
+
+```bash
+python -m benchmark.recall --validar                                  # confere o gabarito contra data/fontes_rag
+python -m benchmark.recall --k 3 --collection base_conhecimento_v1    # mede (ChromaDB no ar)
+```
