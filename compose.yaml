@@ -18,7 +18,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
       CHROMA_HOST: chromadb
       CHROMA_PORT: 8000
-      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-base_conhecimento_v1}
+      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-base_conhecimento_v2}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       LLM_MODEL: ${LLM_MODEL:-not_configured}
       LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-not_configured}
@@ -68,6 +69,7 @@ services:
       - ./migrations/008_limites_in75.sql:/docker-entrypoint-initdb.d/008_limites_in75.sql:ro
       - ./migrations/009_fontes_oms.sql:/docker-entrypoint-initdb.d/009_fontes_oms.sql:ro
       - ./migrations/010_conferencia_fontes.sql:/docker-entrypoint-initdb.d/010_conferencia_fontes.sql:ro
+      - ./migrations/011_fontes_alergenicos.sql:/docker-entrypoint-initdb.d/011_fontes_alergenicos.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-berkanan_user} -d $${POSTGRES_DB:-berkanan_dev}"]
       interval: 10s

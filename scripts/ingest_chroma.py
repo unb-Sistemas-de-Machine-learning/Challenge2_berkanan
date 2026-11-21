@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """Script versionado de ingestão da Feature Store vetorial ChromaDB (R4).
 
-Indexa as fontes oficiais em JSON extraído por página (`data/fontes_rag/*.json`)
-na coleção versionada `base_conhecimento_v1` (ADR-001 e ADR-006):
+Indexa as fontes oficiais (`data/fontes_rag/*.json`) na coleção versionada
+`base_conhecimento_v2` (ADR-001, ADR-006 e issues #6, #20 e #27):
 1. Guia Alimentar para a População Brasileira (MS, 2ª ed., 2014)
-2. RDC 429/2020 (ANVISA)
-3. IN 75/2020 (ANVISA)
+2. RDC 429/2020 (ANVISA — extraída do HTML oficial do DOU)
+3. IN 75/2020 (ANVISA — extraída do HTML oficial do DOU, com tabela do Anexo XV íntegra)
 4. OMS – Guideline: Sugars intake for adults and children (OMS, 2015)
 5. OMS – Guideline: Sodium intake for adults and children (OMS, 2012)
 6. Diretrizes da Sociedade Brasileira de Diabetes (SBD)
+7. RDC 727/2022 (ANVISA — rotulagem de alergênicos e lactose, HTML do DOU)
+8. Lei 10.674/2003 (Planalto — rotulagem obrigatória de glúten)
 
-Parâmetros de segmentação (CLAUDE.md Seção 6.2):
-- Trechos de até 1000 caracteres com 150 caracteres de sobreposição.
+Parâmetros de segmentação e embeddings (base_conhecimento_v2):
+- Modelo de embeddings explícito: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+  (mesmo modelo usado na busca em `backend/chroma_client.py`).
+- Trechos de até 500 caracteres com 100 caracteres de sobreposição (compatível com a
+  janela de 128 tokens do modelo multilíngue).
 - Metadados obrigatórios por trecho:
-  `documento`, `fonte_id`, `arquivo`, `pagina`, `versao_indice` (além de `link`).
+  `documento`, `fonte_id`, `arquivo`, `pagina`, `versao_indice` (além de `link` e `unidade_citacao`).
 """
 
 from __future__ import annotations
@@ -35,12 +40,20 @@ logger = logging.getLogger("berkanan.ingest_chroma")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCES_DIR = REPO_ROOT / "data" / "fontes_rag"
 
-CHROMA_HOST = os.getenv("CHROMA_HOST", "127.0.0.1")
-CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
-CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION", "base_conhecimento_v1")
+for candidate_path in (REPO_ROOT / "backend", Path("/app")):
+    if candidate_path.exists() and str(candidate_path) not in sys.path:
+        sys.path.insert(0, str(candidate_path))
 
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 150
+from chroma_client import (  # noqa: E402
+    CHROMA_COLLECTION,
+    CHROMA_HOST,
+    CHROMA_PORT,
+    EMBEDDING_MODEL,
+    embed_texts,
+)
+
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 100
 BATCH_SIZE = 64
 
 # Fallback determinístico caso o PostgreSQL não esteja acessível durante ingestão offline
@@ -48,9 +61,12 @@ FALLBACK_FONTE_IDS: dict[str, int] = {
     "Guia Alimentar para a População Brasileira": 1,
     "RDC 429/2020": 2,
     "IN 75/2020": 3,
+    "Diretrizes sobre açúcares e sódio": 5,
     "OMS – Guideline: Sugars intake for adults and children": 5,
     "Diretrizes da Sociedade Brasileira de Diabetes (SBD)": 6,
     "OMS – Guideline: Sodium intake for adults and children": 7,
+    "RDC 727/2022": 8,
+    "Lei 10.674/2003": 9,
 }
 
 
@@ -88,18 +104,76 @@ def resolve_fonte_ids_from_db() -> dict[str, int]:
     return mapping
 
 
+def _split_text_window(text: str, chunk_size: int, overlap: int, prefix: str = "") -> list[str]:
+    """Segmenta uma string em janelas de `chunk_size` com `overlap`, sem cortar palavras."""
+    text = text.strip()
+    if not text:
+        return []
+    if len(text) <= chunk_size:
+        return [text]
+
+    snippets: list[str] = []
+    pos = 0
+    total_len = len(text)
+    while pos < total_len:
+        raw_end = min(pos + chunk_size, total_len)
+        end = raw_end
+        if raw_end < total_len:
+            nl_pos = text.rfind("\n", pos + max(overlap + 1, chunk_size - 160), raw_end)
+            ws_pos = text.rfind(" ", pos + max(overlap + 1, chunk_size - 120), raw_end)
+            split_at = nl_pos if nl_pos > pos + overlap else ws_pos
+            if split_at > pos + overlap:
+                end = split_at
+
+        snippet = text[pos:end].strip()
+        if snippet:
+            if prefix and not snippet.startswith("["):
+                snippet = f"{prefix} {snippet}"
+            snippets.append(snippet)
+
+        if end >= total_len:
+            break
+        next_pos = max(pos + 1, end - overlap)
+        nl_start = text.find("\n", next_pos, end)
+        ws_start = text.find(" ", next_pos, end)
+        if nl_start != -1 and nl_start + 1 < end:
+            pos = nl_start + 1
+        elif ws_start != -1 and ws_start + 1 < end:
+            pos = ws_start + 1
+        else:
+            pos = next_pos
+    return snippets
+
+
 def chunk_document_pages(
     pages: list[dict[str, Any]],
     chunk_size: int = CHUNK_SIZE,
     overlap: int = CHUNK_OVERLAP,
+    documento: str = "",
 ) -> list[tuple[int, str]]:
-    """Segmenta páginas contínuas em trechos de `chunk_size` com `overlap` caracteres.
+    """Segmenta páginas ou unidades normativas em trechos de `chunk_size` com `overlap`.
 
-    Retorna lista de `(pagina_inicial, texto_trecho)` rastreando a página exata onde
-    cada trecho se inicia.
+    - Se as entradas possuírem `unidade_citacao` (normas extraídas de HTML por artigo/anexo),
+      segmenta dentro de cada unidade normativa para nunca misturar artigos ou anexos distintos,
+      preservando o cabeçalho `[Documento - Art./Anexo]` nos trechos de continuação.
+    - Para documentos paginados contínuos (PDFs), mantém janela deslizante contínua entre páginas.
     """
     if overlap >= chunk_size:
         raise ValueError("overlap deve ser estritamente menor que chunk_size")
+
+    has_normative_units = any("unidade_citacao" in entry for entry in pages)
+    if has_normative_units:
+        norm_chunks: list[tuple[int, str]] = []
+        for entry in pages:
+            txt = str(entry.get("texto", "")).strip()
+            if not txt:
+                continue
+            pagina = int(entry["pagina"])
+            unidade = str(entry.get("unidade_citacao", f"p.{pagina}"))
+            prefix = f"[{documento} - {unidade}]" if documento else f"[{unidade}]"
+            for snippet in _split_text_window(txt, chunk_size=chunk_size, overlap=overlap, prefix=prefix):
+                norm_chunks.append((pagina, snippet))
+        return norm_chunks
 
     full_parts: list[str] = []
     page_starts: list[int] = []
@@ -129,10 +203,9 @@ def chunk_document_pages(
         raw_end = min(pos + chunk_size, total_len)
         end = raw_end
 
-        # Evita cortar palavras ao meio quando não é o último trecho
         if raw_end < total_len:
-            ws_pos = full_text.rfind(" ", pos + chunk_size - 120, raw_end)
-            nl_pos = full_text.rfind("\n", pos + chunk_size - 120, raw_end)
+            ws_pos = full_text.rfind(" ", pos + max(overlap + 1, chunk_size - 120), raw_end)
+            nl_pos = full_text.rfind("\n", pos + max(overlap + 1, chunk_size - 120), raw_end)
             split_at = max(ws_pos, nl_pos)
             if split_at > pos + overlap:
                 end = split_at
@@ -172,8 +245,15 @@ def load_chunks_from_sources(
             raise KeyError(f"fonte_id não encontrado para documento={doc_name!r}")
         fonte_id = fonte_ids[doc_name]
 
+        paginas_raw = data.get("paginas", [])
+        unidade_by_page = {
+            int(p["pagina"]): str(p.get("unidade_citacao", f"p.{p['pagina']}"))
+            for p in paginas_raw
+            if "pagina" in p
+        }
+
         page_chunks = chunk_document_pages(
-            data.get("paginas", []), chunk_size=chunk_size, overlap=overlap
+            paginas_raw, chunk_size=chunk_size, overlap=overlap, documento=doc_name
         )
         slug = jf.stem
         for idx, (pagina, text) in enumerate(page_chunks, 1):
@@ -186,13 +266,14 @@ def load_chunks_from_sources(
                         "fonte_id": fonte_id,
                         "arquivo": arquivo,
                         "pagina": pagina,
+                        "unidade_citacao": unidade_by_page.get(pagina, f"p.{pagina}"),
                         "versao_indice": collection_name,
                         "link": link,
                     },
                 )
             )
         logger.info(
-            "Fonte %-48s | arquivo=%-42s | trechos=%d",
+            "Fonte %-55s | arquivo=%-42s | trechos=%d",
             doc_name,
             arquivo,
             len(page_chunks),
@@ -219,7 +300,8 @@ def _get_or_create_collection(
                 name=collection_name,
                 metadata={
                     "hnsw:space": "cosine",
-                    "description": "Feature Store Vetorial - Fontes Oficiais (1000 chars, overlap 150)",
+                    "embedding_model": EMBEDDING_MODEL,
+                    "description": "Feature Store Vetorial - Fontes Oficiais (500 chars, overlap 100)",
                 },
             )
         except Exception:
@@ -231,6 +313,7 @@ def _get_or_create_collection(
                         "name": collection_name,
                         "metadata": {
                             "hnsw:space": "cosine",
+                            "embedding_model": EMBEDDING_MODEL,
                             "description": "Feature Store Vetorial",
                         },
                     }
@@ -261,10 +344,11 @@ def ingest(
     )
 
     logger.info(
-        "Conectando ao ChromaDB em %s:%d (coleção: %s, total de trechos: %d)...",
+        "Conectando ao ChromaDB em %s:%d (coleção: %s, modelo: %s, total de trechos: %d)...",
         host,
         port,
         collection_name,
+        EMBEDDING_MODEL,
         len(records),
     )
 
@@ -280,11 +364,21 @@ def ingest(
         col = _get_or_create_collection(client, collection_name, host, port, recreate=recreate)
         for i in range(0, len(records), BATCH_SIZE):
             batch = records[i : i + BATCH_SIZE]
-            col.upsert(
-                ids=[r.chunk_id for r in batch],
-                documents=[r.text for r in batch],
-                metadatas=[r.metadata for r in batch],
-            )
+            docs = [r.text for r in batch]
+            vecs = embed_texts(docs, is_query=False)
+            if vecs:
+                col.upsert(
+                    ids=[r.chunk_id for r in batch],
+                    documents=docs,
+                    embeddings=vecs,
+                    metadatas=[r.metadata for r in batch],
+                )
+            else:
+                col.upsert(
+                    ids=[r.chunk_id for r in batch],
+                    documents=docs,
+                    metadatas=[r.metadata for r in batch],
+                )
         total_in_col = col.count()
         logger.info(
             "✓ Sucesso: %d trechos indexados (total na coleção '%s': %d).",
@@ -307,7 +401,7 @@ if __name__ == "__main__":
         "--sources-dir",
         type=Path,
         default=DEFAULT_SOURCES_DIR,
-        help="Diretório com os JSONs de páginas extraídas das fontes",
+        help="Diretório com os JSONs de páginas/unidades extraídas das fontes",
     )
     parser.add_argument(
         "--recreate",

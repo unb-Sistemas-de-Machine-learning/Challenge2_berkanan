@@ -155,8 +155,8 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
   - [x] Incorporar os arquivos de migração e seeds SQL neste repositório (`migrations/` e `seeds/`).
   - [x] Implementar módulos de integração com PostgreSQL (`backend/database.py`) e ChromaDB (`backend/chroma_client.py`).
   - [x] Documentar plano e matriz R4 em `docs/r4/documento_desafio2_r4.md` e `docs/r4/papel_R4_davi.xlsx`.
-  - [ ] Conferir conteúdo das 5 fontes oficiais (`status_conferencia = conferido`); TACO real (`007_carga_taco.sql`) e os 6 limites literais da IN 75/2020 (`008_limites_in75.sql`) já carregados no PostgreSQL.
-  - [x] Indexar o texto integral dos documentos oficiais no ChromaDB (`base_conhecimento_v1` via `scripts/ingest_chroma.py`, 811 trechos de 1000 chars / 150 overlap).
+  - [x] Conferir conteúdo das fontes oficiais (`010_conferencia_fontes.sql` e `011_fontes_alergenicos.sql`); TACO real (`007_carga_taco.sql`) e os 6 limites literais da IN 75/2020 (`008_limites_in75.sql`) já carregados no PostgreSQL.
+  - [x] Indexar o texto integral dos documentos oficiais no ChromaDB (`base_conhecimento_v2` via `scripts/ingest_chroma.py`, 1951 trechos de 500 chars / 100 overlap com normas extraídas de HTML oficial do DOU/Planalto e embeddings multilíngues).
   - [ ] Implementar as regras de extração e checagens de consistência do OCR (semana 4).
 - **R5 (Carlos — Engenheiro de Software):**
   - [x] Entregar esqueleto inicial da API FastAPI e LangGraph (`backend-whatsapp-v0.1.0`).
@@ -167,7 +167,7 @@ Este documento consolida a identidade do projeto, as decisões arquiteturais, o 
   - [x] Estruturar o repositório, preservar o baseline `backend-whatsapp-v0.1.0` e os documentos de contexto.
   - [x] Implementar `backend/Dockerfile`, `compose.yaml`, `.env.example`, `.github/workflows/ci.yml` e `scripts/smoke_backend.sh`.
   - [x] Estruturar `mlops/manifests/runtime-manifest.yaml` e convenções de versionamento de prompts/índices/monitoramento.
-  - [x] Integrar a execução automática das migrações SQL (`001`–`004`) no `compose.yaml` (volume `/docker-entrypoint-initdb.d`).
+  - [x] Integrar a execução automática das migrações SQL (`001`–`011`) no `compose.yaml` (volume `/docker-entrypoint-initdb.d`).
   - [ ] Habilitar o container e o job de CI do `frontend` assim que R5 entregar a aplicação React.
   - [ ] Avaliar na semana 5 a integração opcional do Grafana lendo do PostgreSQL.
 

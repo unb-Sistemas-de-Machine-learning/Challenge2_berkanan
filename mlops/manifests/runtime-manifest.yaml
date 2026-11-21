@@ -38,13 +38,13 @@ prompts:
 
 knowledge_base_rag:
   vector_store: "chromadb"
-  index_version: "base_conhecimento_v1"
-  index_status: "indexed_in_chromadb (811 trechos de 1000 chars / 150 overlap das 5 fontes oficiais em base_conhecimento_v1; embedding default all-MiniLM-L6-v2)"
+  index_version: "base_conhecimento_v2"
+  index_status: "indexed_in_chromadb (1951 trechos de 500 chars / 100 overlap em base_conhecimento_v2 com normas extraidas de HTML oficial do DOU/Planalto, incluindo RDC 727/2022 e Lei 10.674/2003, e modelo multilingue explicito)"
   embedding_provider: "huggingface"
-  embedding_model_name: "not_configured (mesmo modelo do Desafio 1, pendente de integracao no codigo)"
+  embedding_model_name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
   chunking_parameters:
-    chunk_size_chars: 1000
-    chunk_overlap_chars: 150
+    chunk_size_chars: 500
+    chunk_overlap_chars: 100
   required_chunk_metadata:
     - "documento"
     - "fonte_id"
@@ -55,7 +55,7 @@ knowledge_base_rag:
 structured_database:
   engine: "postgresql"
   engine_version: "16.4"
-  schema_migrations_status: "configured_in_repo (migracoes 001-010 com carga da TACO, limites IN 75/2020, fontes da OMS e conferencia das fontes e seeds integradas em migrations/ e compose.yaml)"
+  schema_migrations_status: "configured_in_repo (migracoes 001-011 com carga da TACO, limites IN 75/2020, fontes da OMS, conferencia das fontes, RDC 727/2022 e Lei 10.674/2003 e seeds integradas em migrations/ e compose.yaml)"
   tables_expected:
     - "fontes_documentos"
     - "taco_alimentos"
