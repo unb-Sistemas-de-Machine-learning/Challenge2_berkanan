@@ -6,7 +6,7 @@ na coleção versionada `base_conhecimento_v1` (ADR-001 e ADR-006):
 1. Guia Alimentar para a População Brasileira (MS, 2ª ed., 2014)
 2. RDC 429/2020 (ANVISA)
 3. IN 75/2020 (ANVISA)
-4. Diretrizes sobre açúcares e sódio — Sugars intake (OMS, 2015)
+4. OMS – Guideline: Sugars intake for adults and children (OMS, 2015)
 5. OMS – Guideline: Sodium intake for adults and children (OMS, 2012)
 6. Diretrizes da Sociedade Brasileira de Diabetes (SBD)
 
@@ -48,7 +48,7 @@ FALLBACK_FONTE_IDS: dict[str, int] = {
     "Guia Alimentar para a População Brasileira": 1,
     "RDC 429/2020": 2,
     "IN 75/2020": 3,
-    "Diretrizes sobre açúcares e sódio": 5,
+    "OMS – Guideline: Sugars intake for adults and children": 5,
     "Diretrizes da Sociedade Brasileira de Diabetes (SBD)": 6,
     "OMS – Guideline: Sodium intake for adults and children": 7,
 }

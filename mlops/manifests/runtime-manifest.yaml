@@ -55,7 +55,7 @@ knowledge_base_rag:
 structured_database:
   engine: "postgresql"
   engine_version: "16.4"
-  schema_migrations_status: "configured_in_repo (migracoes 001-008 com carga da TACO, limites IN 75/2020 e seeds integradas em migrations/ e compose.yaml)"
+  schema_migrations_status: "configured_in_repo (migracoes 001-009 com carga da TACO, limites IN 75/2020, fontes da OMS e seeds integradas em migrations/ e compose.yaml)"
   tables_expected:
     - "fontes_documentos"
     - "taco_alimentos"
