@@ -171,8 +171,8 @@ _DOMAIN_RULES: list[tuple[tuple[str, ...], list[str], list[str]]] = [
     ),
     (
         ("%vd",),
-        ["RDC 429/2020", "IN 75/2020"],
-        ["art. 12", "adicionalmente em %vd", "anexo ii", "2.000 kcal"],
+        ["IN 75/2020", "RDC 429/2020"],
+        ["anexo ii", "2.000 kcal", "valor energetico — vdr (unidade): 2.000 kcal", "adicionalmente em %vd"],
     ),
     # Categoria E — Alergênicos, Glúten e Lactose (RDC 727/2022 e Lei 10.674/2003)
     (
