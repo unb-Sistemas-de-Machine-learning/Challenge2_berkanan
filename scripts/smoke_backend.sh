@@ -93,6 +93,7 @@ required_fields = [
     "matched_sources",
     "timestamp",
     "response_time_ms",
+    "llm_calls",
     "classification",
     "confidence_score",
     "rag_sources_count",
@@ -105,8 +106,11 @@ if missing:
     print(f"[FALHA] Campos obrigatórios ausentes na resposta: {missing}", file=sys.stderr)
     sys.exit(1)
 
-if not isinstance(payload["matched_sources"], list) or len(payload["matched_sources"]) < 1:
-    print("[FALHA] Campo matched_sources deveria ser uma lista não vazia.", file=sys.stderr)
+if not isinstance(payload["matched_sources"], list):
+    print("[FALHA] Campo matched_sources deveria ser uma lista.", file=sys.stderr)
+    sys.exit(1)
+if payload["matched_sources"] == [] and payload["classification"] != "INCONCLUSIVO":
+    print("[FALHA] Sem fontes recuperadas, a resposta deve declarar INCONCLUSIVO.", file=sys.stderr)
     sys.exit(1)
 
 if not isinstance(payload["response_time_ms"], int) or payload["response_time_ms"] < 0:
