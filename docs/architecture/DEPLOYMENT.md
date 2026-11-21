@@ -25,12 +25,12 @@ flowchart LR
 | Serviço | Imagem / Build | Porta Interna | Porta Host (padrão local) | Volume Persistente | Status da Integração no Código |
 |---|---|---|---|---|---|
 | `backend` | Build local (`./backend/Dockerfile`, base `python:3.12.7-slim-bookworm`) | `8000` | `127.0.0.1:8000` | Sem estado (stateless) | `IMPLEMENTADO` (esqueleto `main:api` com `POST /api/analyze`, `/health`, telemetria) |
-| `postgres` | `postgres:16.4-alpine` | `5432` | `127.0.0.1:5432` | `postgres_data` | `IMPLEMENTADO` (migrações 001–004 montadas em `/docker-entrypoint-initdb.d`, `database.py`) |
+| `postgres` | `postgres:16.4-alpine` | `5432` | `127.0.0.1:5432` | `postgres_data` | `IMPLEMENTADO` (migrações 001–008 montadas em `/docker-entrypoint-initdb.d`, `database.py`) |
 | `chromadb` | `chromadb/chroma:0.5.20` | `8000` | `127.0.0.1:8001` | `chroma_data` | `IMPLEMENTADO` (`chroma_client.py`, `scripts/ingest_chroma.py`, coleção `base_conhecimento_v1`) |
 | `frontend` | *Não incluído ainda* | — | — | — | `PENDENTE` (será adicionado quando R5 entregar o projeto React/Vite) |
 
 > [!NOTE]
-> **Integração de Dados (Handoff R4):** As migrações 001–004 (`migrations/`) e os módulos de dados no backend conectam a API FastAPI tanto à Feature Store relacional (PostgreSQL) para cálculos exatos e telemetria quanto à Feature Store vetorial (ChromaDB) para citações RAG.
+> **Integração de Dados (Handoff R4):** As migrações 001–008 (`migrations/`) e os módulos de dados no backend conectam a API FastAPI tanto à Feature Store relacional (PostgreSQL) para cálculos exatos e telemetria quanto à Feature Store vetorial (ChromaDB) para citações RAG.
 
 ---
 
