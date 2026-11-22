@@ -9,8 +9,9 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+import database
 from chroma_client import query_knowledge_base
-from rotulagem import classificar_alto_em
+from rotulagem import LIMITES_RESERVA, carregar_limites, classificar_alto_em
 from state import AgentState
 
 logger = logging.getLogger("berkanan.nutritional")
@@ -42,14 +43,86 @@ def _get_gemini_model() -> Any | None:
         return None
 
 
-def _deterministic_nutrition_analysis(dados_produto: dict[str, Any]) -> dict[str, Any]:
-    tipo = "liquido" if dados_produto.get("tipo_alimento") == "liquido" else "solido"
+def _get_llm_call_limit() -> int:
+    try:
+        limit = int(os.getenv("MAX_LLM_CALLS_PER_RESPONSE", "2"))
+    except (TypeError, ValueError):
+        limit = 2
+    return max(limit, 0)
+
+
+def _load_rotulagem_limits() -> tuple[dict, list[str]]:
+    try:
+        rows = database.get_limites_rotulagem()
+    except Exception as exc:
+        logger.warning(
+            "limites da reserva em código, banco indisponível: %s",
+            exc,
+        )
+        return dict(LIMITES_RESERVA), [
+            "limites da reserva em código, banco indisponível"
+        ]
+
+    if not rows:
+        logger.warning("limites da reserva em código, banco indisponível")
+        return dict(LIMITES_RESERVA), [
+            "limites da reserva em código, banco indisponível"
+        ]
+
+    return carregar_limites(lambda: rows), []
+
+
+def _apply_taco_reference(dados_produto: dict[str, Any]) -> dict[str, Any]:
+    """Completa somente dados por 100 g/100 ml quando houver categoria ou tipo."""
+    relevant_keys = (
+        "acucares_adicionados_g",
+        "gorduras_saturadas_g",
+        "sodio_mg",
+    )
+    if any(dados_produto.get(key) is not None for key in relevant_keys):
+        return dados_produto
+
+    search = (
+        dados_produto.get("tipo_alimento")
+        or dados_produto.get("categoria")
+    )
+    if not search:
+        return dados_produto
+
+    try:
+        rows = database.get_taco_alimento(str(search))
+    except Exception as exc:
+        logger.warning("Consulta TACO indisponível: %s", exc)
+        return dados_produto
+
+    if not rows:
+        return dados_produto
+
+    row = rows[0]
+    completed = dict(dados_produto)
+    if completed.get("gorduras_saturadas_g") is None:
+        completed["gorduras_saturadas_g"] = row.get("saturados_g")
+    if completed.get("sodio_mg") is None:
+        completed["sodio_mg"] = row.get("sodio_mg")
+    return completed
+
+
+def _deterministic_nutrition_analysis(
+    dados_produto: dict[str, Any],
+    limites: dict | None = None,
+) -> dict[str, Any]:
+    tipo_value = str(
+        dados_produto.get("tipo_alimento")
+        or dados_produto.get("categoria")
+        or ""
+    ).strip().lower()
+    tipo = "liquido" if "líquid" in tipo_value or "liquid" in tipo_value else "solido"
     values = {
         "acucares_adicionados": dados_produto.get("acucares_adicionados_g"),
         "gorduras_saturadas": dados_produto.get("gorduras_saturadas_g"),
         "sodio": dados_produto.get("sodio_mg"),
     }
-    return classificar_alto_em(values, tipo)
+    return classificar_alto_em(values, tipo, limites)
 
 
 def _deterministic_classification(
@@ -83,6 +156,7 @@ def nutritional_agent_node(state: AgentState) -> dict:
     dados_produto = state.get("extracted_ocr_data") or {}
     if not isinstance(dados_produto, dict):
         dados_produto = {}
+    dados_produto = _apply_taco_reference(dados_produto)
 
     confirmed_text = state.get("text_query")
     query = confirmed_text
@@ -126,7 +200,11 @@ def nutritional_agent_node(state: AgentState) -> dict:
         if item.get("text")
     )
 
-    classificacao_deterministica = _deterministic_nutrition_analysis(dados_produto)
+    limites, fallback_warnings = _load_rotulagem_limits()
+    classificacao_deterministica = _deterministic_nutrition_analysis(
+        dados_produto,
+        limites,
+    )
     alto_em = classificacao_deterministica.get("alto_em", [])
     inconsistencias = classificacao_deterministica.get("inconsistencias", [])
     deterministic_tone = _deterministic_classification(
@@ -134,6 +212,7 @@ def nutritional_agent_node(state: AgentState) -> dict:
         classificacao_deterministica,
     )
     warnings = list(inconsistencias)
+    warnings.extend(fallback_warnings)
 
     contem = dados_produto.get("alergicos_contem")
     pode_conter = dados_produto.get("alergicos_pode_conter")
@@ -149,6 +228,7 @@ def nutritional_agent_node(state: AgentState) -> dict:
 
     llm_calls = state.get("llm_calls", 0)
     model = _get_gemini_model()
+    llm_limit = _get_llm_call_limit()
     resultado: dict[str, Any]
 
     if not matched_sources:
@@ -172,7 +252,27 @@ def nutritional_agent_node(state: AgentState) -> dict:
             "warnings": warnings,
         }
     else:
-        prompt = f"""
+        if llm_calls >= llm_limit:
+            logger.warning(
+                "Limite de chamadas ao LLM atingido (%s); chamada do agente nutricional ignorada.",
+                llm_limit,
+            )
+            warnings.append(
+                "Limite de chamadas ao LLM atingido; a resposta foi preservada em modo determinístico."
+            )
+            alto_texto = ", ".join(alto_em) if alto_em else "nenhum dos limites avaliados"
+            resultado = {
+                "draft_response": (
+                    "Análise determinística concluída. "
+                    f"Classificação ALTO EM: {alto_texto}. "
+                    "Os valores foram obtidos do rótulo confirmado e da norma IN 75/2020."
+                ),
+                "classification_tone": deterministic_tone,
+                "warnings": warnings,
+            }
+        else:
+            llm_calls += 1
+            prompt = f"""
 Contexto oficial recuperado:
 {contexto}
 
@@ -193,28 +293,27 @@ Responda apenas JSON válido com:
 - classification_tone: SAUDAVEL, ATENCAO ou EVITAR
 - warnings: lista de avisos
 """
-        try:
-            gemini_started_at = time.perf_counter()
-            response = model.models.generate_content(
-                model=os.getenv("LLM_MODEL", "").strip(),
-                contents=prompt,
-            )
-            gemini_elapsed_ms = int((time.perf_counter() - gemini_started_at) * 1000)
-            print(f"-> Gemini: chamada concluida em {gemini_elapsed_ms} ms")
-            llm_calls += 1
-            texto_limpo = (response.text or "").strip()
-            if texto_limpo.startswith("```"):
-                texto_limpo = texto_limpo.strip("`")
-                if texto_limpo.lower().startswith("json"):
-                    texto_limpo = texto_limpo[4:].strip()
-            resultado = json.loads(texto_limpo)
-        except Exception as exc:
-            logger.warning("Falha ao processar resposta Gemini: %s", exc)
-            resultado = {
-                "draft_response": "Não foi possível gerar uma explicação com o LLM. Os dados determinísticos foram preservados.",
-                "classification_tone": deterministic_tone,
-                "warnings": warnings,
-            }
+            try:
+                gemini_started_at = time.perf_counter()
+                response = model.models.generate_content(
+                    model=os.getenv("LLM_MODEL", "").strip(),
+                    contents=prompt,
+                )
+                gemini_elapsed_ms = int((time.perf_counter() - gemini_started_at) * 1000)
+                print(f"-> Gemini: chamada concluida em {gemini_elapsed_ms} ms")
+                texto_limpo = (response.text or "").strip()
+                if texto_limpo.startswith("```"):
+                    texto_limpo = texto_limpo.strip("`")
+                    if texto_limpo.lower().startswith("json"):
+                        texto_limpo = texto_limpo[4:].strip()
+                resultado = json.loads(texto_limpo)
+            except Exception as exc:
+                logger.warning("Falha ao processar resposta Gemini: %s", exc)
+                resultado = {
+                    "draft_response": "Não foi possível gerar uma explicação com o LLM. Os dados determinísticos foram preservados.",
+                    "classification_tone": deterministic_tone,
+                    "warnings": warnings,
+                }
 
     tone = resultado.get("classification_tone")
     if tone not in {"SAUDAVEL", "ATENCAO", "EVITAR", "INCONCLUSIVO", "ERRO"}:
