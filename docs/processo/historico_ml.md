@@ -36,6 +36,27 @@ Resultados ainda não medidos ficam marcados como `PENDENTE`. Nunca registre res
 
 ---
 
+## 0. Ponto de partida: a crítica ao Desafio 1
+
+**O que fizemos no Desafio 1:** um classificador de notícias (FAKE ou REAL) treinado com **TF-IDF + MultinomialNB** em **164 exemplos** (130 de treino e 34 de teste). O modelo foi escolhido por GridSearchCV entre 4 algoritmos e várias combinações, pelo F1 da classe FAKE, e chegou a **F1 de 0,978** no teste.
+
+**A crítica do professor:** com tão poucos dados, o modelo provavelmente estava em **overfitting**.
+
+**Por que ele tinha razão:**
+- O TF-IDF transforma cada palavra (e par de palavras) do vocabulário numa variável. Com 130 exemplos e milhares de variáveis, o modelo **decora as palavras** daqueles textos em vez de aprender o padrão. O próprio README já dizia que ele "aprende estilo de escrita, não medicina".
+- Escolher entre muitas configurações **nos mesmos poucos dados** favorece a que se ajustou por acaso.
+- Com 34 exemplos de teste, **cada erro muda o resultado em cerca de 3 pontos**: o 0,978 parecia muito mais preciso do que era.
+
+O problema não era o F1 (que só mede) nem o TF-IDF (que só representa o texto), e sim **treinar e escolher o modelo com poucos dados e avaliá-lo num conjunto pequeno**.
+
+**O que mudou no Desafio 2 por causa disso:**
+1. **Não treinamos nenhum modelo.** Usamos modelos já treinados (embeddings multilíngues e Gemini) e regras e cálculos determinísticos. O conjunto de teste serve **só para avaliar**, nunca para ajustar.
+2. **Quando o mesmo risco apareceu de outra forma** (regras da busca escritas para as perguntas do teste, seção 5.4), ele foi detectado pela própria medição e corrigido.
+3. **O conjunto de teste também é pequeno, então os resultados são estimativas.** Cada pergunta vale 3,3 pontos no recall (30 perguntas) e 2 pontos nas métricas de 50 perguntas. A regra do verificador ("C só fica com ≥ 5 pontos de fidelidade") corresponde a 2 ou 3 respostas, por isso as 3 repetições e a leitura com margem.
+4. **Ajustes vão para um conjunto de validação separado**, com perguntas novas, e o conjunto de teste fica só para a medição final. `PENDENTE`.
+
+---
+
 ## 1. O problema e como chegamos à pergunta
 
 - **Problema:** as pessoas escolhem alimentos por rótulos difíceis de ler, marketing e redes sociais. A informação confiável existe (Guia Alimentar, ANVISA), mas está em documentos longos que ninguém consulta na hora da compra.
@@ -178,6 +199,7 @@ O que os números mostraram:
 6. **Tamanho do trecho e janela do modelo andam juntos.**
 7. **Avaliar com a saída bruta.** O resumo de outra IA mostrou um trecho que não existia na página citada.
 8. **Não ajustar o sistema com o conjunto de teste.** Regras escritas para as perguntas da prova levaram o recall a 100%; sem elas, o valor real era 53%. Ajustes precisam de um conjunto de validação separado.
+9. **Com poucos dados, todo número é uma estimativa.** Foi a crítica ao Desafio 1 (F1 de 0,978 em 34 exemplos) e vale aqui: com 30 a 50 perguntas, uma diferença de poucos pontos pode ser só variação.
 
 ---
 
