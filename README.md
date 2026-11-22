@@ -424,6 +424,7 @@ curl -X POST http://localhost:8000/api/analyze \
 | `product_ids` | `string[] \| null` | `null` | Identificadores de produtos para comparação |
 | `user_profile` | `{has_diabetes: bool, has_hypertension: bool}` | `{false, false}` | Condições informadas para emissão de alertas |
 | `enable_verifier` | `bool` | `true` | Liga ou desliga o nó verificador no LangGraph |
+| `verifier_mode` | `"rules"` \| `"llm"` | `"rules"` | Seleciona o verificador determinístico (Config. B) ou o verificador LLM (Config. C) |
 
 ### Contrato `AnalysisResponse` ([backend/schemas.py](backend/schemas.py))
 
@@ -435,6 +436,7 @@ curl -X POST http://localhost:8000/api/analyze \
 | `matched_sources` | `[{text, source, similarity, source_url, source_title}]` | Fontes oficiais recuperadas para sustentar a resposta |
 | `timestamp` | `datetime` | Data/hora UTC da resposta |
 | `response_time_ms` | `int` | Tempo de processamento em milissegundos |
+| `llm_calls` | `int` | Quantidade de tentativas ao LLM nesta resposta; limitado por `MAX_LLM_CALLS_PER_RESPONSE` |
 | `classification` | `"SAUDAVEL"` \| `"ATENCAO"` \| `"EVITAR"` \| `"INCONCLUSIVO"` \| `"ERRO"` | Tom de recomendação calculado |
 | `confidence_score` | `float` | Pontuação de confiança (`1.0` se aprovado na verificação, `0.5` caso contrário) |
 | `rag_sources_count` | `int` | Quantidade de fontes retornadas em `matched_sources` |
