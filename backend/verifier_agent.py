@@ -5,6 +5,44 @@ from typing import Any, Dict, List
 
 from state import AgentState
 
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None
+    types = None
+
+
+def _gemini_client():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key or api_key.startswith("replace_with"):
+        return None
+
+    model_name = os.getenv("LLM_MODEL", "").strip()
+    if not model_name or model_name == "not_configured":
+        return None
+
+    if genai is None:
+        return None
+
+    try:
+        http_options = (
+            types.HttpOptions(timeout=8000) if types is not None else None
+        )
+        if http_options is None:
+            return genai.Client(api_key=api_key)
+        return genai.Client(api_key=api_key, http_options=http_options)
+    except Exception:
+        return None
+
+
+def _get_llm_call_limit() -> int:
+    try:
+        limit = int(os.getenv("MAX_LLM_CALLS_PER_RESPONSE", "2"))
+    except (TypeError, ValueError):
+        limit = 2
+    return max(limit, 0)
+
 
 # Expressões que identificam explicitamente insuficiência de evidências.
 # A lista deve ser ampliada conforme os contratos de resposta evoluírem.
@@ -134,6 +172,9 @@ def verifier_agent_llm_node(state: AgentState) -> Dict[str, Any]:
     """Verificador semântico Configuração C (LLM)."""
     print("-> Verificador LLM (Config C) checando alucinações...")
 
+    llm_calls = state.get("llm_calls", 0)
+    llm_limit = _get_llm_call_limit()
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or api_key.startswith("replace_with"):
         return {
@@ -141,7 +182,7 @@ def verifier_agent_llm_node(state: AgentState) -> Dict[str, Any]:
             "verification_errors": [
                 "Configuração C indisponível: GEMINI_API_KEY não configurada."
             ],
-            "llm_calls": state.get("llm_calls", 0),
+            "llm_calls": llm_calls,
         }
 
     model_name = os.getenv("LLM_MODEL", "").strip()
@@ -151,17 +192,29 @@ def verifier_agent_llm_node(state: AgentState) -> Dict[str, Any]:
             "verification_errors": [
                 "Configuração C indisponível: LLM_MODEL não configurada no ambiente."
             ],
-            "llm_calls": state.get("llm_calls", 0),
+            "llm_calls": llm_calls,
+        }
+
+    if llm_calls >= llm_limit:
+        return {
+            "verification_passed": False,
+            "verification_errors": [
+                f"Limite de chamadas ao LLM atingido ({llm_limit}); verificação C ignorada."
+            ],
+            "llm_calls": llm_calls,
+        }
+
+    client = _gemini_client()
+    if client is None:
+        return {
+            "verification_passed": False,
+            "verification_errors": [
+                "Configuração C indisponível: cliente Gemini não pôde ser criado."
+            ],
+            "llm_calls": llm_calls,
         }
 
     try:
-        from google import genai
-        from google.genai import types
-
-        client = genai.Client(
-            api_key=api_key,
-            http_options=types.HttpOptions(timeout=8000),
-        )
         prompt = f"""
 Resposta gerada:
 {state.get("draft_response")}
@@ -172,17 +225,23 @@ Fontes usadas:
 A resposta está 100% suportada pelas fontes?
 Responda apenas 'SIM' ou 'NAO'.
 """
+        llm_calls += 1
         response = client.models.generate_content(
             model=model_name,
             contents=prompt,
         )
-        passed = "SIM" in (response.text or "").upper()
+        normalized = (response.text or "").strip().upper()
+        passed = normalized == "SIM"
         return {
             "verification_passed": passed,
             "verification_errors": [] if passed else [
-                "O LLM detectou afirmações sem suporte nas fontes."
+                (
+                    "O verificador LLM reprovou a resposta: esperava exatamente 'SIM'."
+                    if normalized
+                    else "O verificador LLM não retornou uma resposta válida."
+                )
             ],
-            "llm_calls": state.get("llm_calls", 0) + 1,
+            "llm_calls": llm_calls,
         }
     except Exception as exc:
         return {
@@ -190,5 +249,5 @@ Responda apenas 'SIM' ou 'NAO'.
             "verification_errors": [
                 f"Falha ao executar o verificador LLM: {exc}"
             ],
-            "llm_calls": state.get("llm_calls", 0),
+            "llm_calls": llm_calls,
         }
