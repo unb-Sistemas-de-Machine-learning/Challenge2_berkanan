@@ -2,7 +2,7 @@
 
 > **Para que serve:** registrar, em ordem, o que fizemos de Machine Learning, por que fizemos, o que medimos e o que aprendemos. É a base da apresentação e do relatório final.
 > **Foco:** dados, modelos, recuperação (RAG), construção do assistente e avaliação. Backend, frontend e banco aparecem só quando explicam uma decisão de ML.
-> **Mantido por:** Gustavo (R3), com contribuições de toda a equipe. Última atualização: 21/11/2026.
+> **Mantido por:** Gustavo (R3), com contribuições de toda a equipe. Última atualização: 22/11/2026.
 
 ## Como registrar uma nova entrada
 
@@ -32,6 +32,7 @@ Resultados ainda não medidos ficam marcados como `PENDENTE`. Nunca registre res
 | 20/11 | Grade de experimentos: modelo de embeddings × tamanho do trecho | Melhor resultado: 33%; descobrimos o corte de texto pelos modelos |
 | 21/11 | Cálculo do "ALTO EM" feito por código, testado com o gabarito | Separar o que o LLM explica do que o código calcula |
 | 21/11 | Avaliação com usuários desenhada | Medir se a resposta **orienta**, não só se está correta |
+| 22/11 | Recall da v2: 100% com regras feitas para o teste, **53%** sem elas | Contaminação pelo conjunto de teste, detectada e corrigida |
 
 ---
 
@@ -121,6 +122,14 @@ O que os números mostraram:
 
 **Aprendizado:** o tamanho do trecho tem que caber na janela do modelo de embeddings; trocar só o modelo não resolve; e um teste com 3 perguntas "parecia bom", mas não mostrava o problema. Sem a medição com o conjunto inteiro, teríamos seguido com 13%.
 
+### 5.4 `base_conhecimento_v2` e a contaminação pelo conjunto de teste (21 e 22/11)
+- **21/11, v2 (Davi, PR #38):** normas geradas a partir do HTML oficial (corrige a tabela da IN 75), RDC 727/2022 e Lei 10.674/2003 incluídas, cabeçalhos dos PDFs limpos, modelo multilíngue configurado igual na ingestão e na busca, trechos de 500/100 (1.947 trechos) e uma busca **híbrida**, que soma a similaridade por significado com a sobreposição de palavras e bigramas da pergunta.
+- **22/11, primeira medição: 100%.** Bom demais para ser verdade, considerando 13% na v1 e 33% no melhor teste da grade. Conferindo o código, a busca tinha **31 regras escritas para as próprias perguntas do teste**: cada regra era disparada por palavras da pergunta e empurrava para o topo o trecho com **as mesmas frases-chave do gabarito de recall**. Isso é **contaminação pelo conjunto de teste**: o sistema foi ajustado com as respostas da prova.
+- **Medição sem as regras: 53,3%** (A 60%, B 70%, D 100%, E 25%, F 20%). É o resultado oficial da v2: um ganho real de 13% para 53%, ainda abaixo da meta de 80%. Os pontos fracos são os alergênicos (E) e a OMS em inglês (F).
+- **Correção (22/11, PR #41):** as regras foram removidas; a busca híbrida genérica foi mantida.
+
+**Aprendizado:** resultado perfeito pede auditoria, não comemoração. Um conjunto de teste só mede alguma coisa enquanto não é usado para ajustar o sistema. Para ajustar a busca sem contaminar a medição, é preciso um **conjunto de validação separado**, com perguntas novas escritas com outras palavras.
+
 ---
 
 ## 6. Construção do assistente
@@ -168,6 +177,7 @@ O que os números mostraram:
 5. **Configuração de modelo é decisão de projeto, não detalhe.** O modelo de embeddings "sumiu" na migração do Desafio 1 e ninguém percebeu até medir.
 6. **Tamanho do trecho e janela do modelo andam juntos.**
 7. **Avaliar com a saída bruta.** O resumo de outra IA mostrou um trecho que não existia na página citada.
+8. **Não ajustar o sistema com o conjunto de teste.** Regras escritas para as perguntas da prova levaram o recall a 100%; sem elas, o valor real era 53%. Ajustes precisam de um conjunto de validação separado.
 
 ---
 
@@ -175,7 +185,7 @@ O que os números mostraram:
 
 | Experimento | Métrica e meta | Situação |
 |---|---|---|
-| Recall com a `base_conhecimento_v2` | ≥ 80% no top 3 | `PENDENTE` (#27, #20 e embeddings) |
+| Recall com a `base_conhecimento_v2` | ≥ 80% no top 3 | **53,3%** em 22/11, abaixo da meta (seção 5.4) |
 | LLM puro × RAG | RAG ≥ 15 pontos acima do LLM puro | `PENDENTE` (modelo Gemini a fixar) |
 | Verificador A × B × C | C fica se ganhar ≥ 5 pts de fidelidade com ≤ 3 s a mais | `PENDENTE` (#12, #13) |
 | Extração do rótulo | ≥ 85% dos campos; falsos negativos de alergênicos | `PENDENTE` (#8, #18) |
