@@ -279,6 +279,27 @@ class TestNutritionalAgentDeterministicTone(unittest.TestCase):
     @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
     @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
     @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[])
+    def test_missing_tipo_declares_insufficient_evidence(
+        self,
+        _query,
+        _model,
+        _get_limits,
+        _get_taco,
+    ):
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {"acucares_adicionados_g": 10},
+            "llm_calls": 0,
+        })
+
+        self.assertIn(
+            "não há evidência suficiente",
+            result["draft_response"].lower(),
+        )
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
     @patch("nutritional_agent.query_knowledge_base", return_value=[
         {"text": "Fonte oficial.", "source": "in_75.pdf", "similarity": 0.9}
     ])

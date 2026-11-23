@@ -166,8 +166,8 @@ def nutritional_agent_node(state: AgentState) -> dict:
     if tipo_alimento not in {"liquido", "solido"}:
         return {
             "draft_response": (
-                "A análise depende da confirmação do tipo do produto "
-                "(sólido ou líquido)."
+                "Não há evidência suficiente para concluir a análise sem a "
+                "confirmação do tipo do produto (sólido ou líquido)."
             ),
             "classification_tone": "INCONCLUSIVO",
             "warnings": [
