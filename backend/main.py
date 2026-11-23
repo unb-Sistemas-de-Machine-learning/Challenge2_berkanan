@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from datetime import datetime, timezone
 import logging
 import os
@@ -120,6 +120,37 @@ async def health_check():
 async def analyze(request: AnalysisRequest):
     start_time = time.perf_counter()
 
+    if request.request_type == "ocr_analysis":
+        if request.valores_nutricionais_100 is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Os valores nutricionais confirmados são obrigatórios."
+            )
+
+        if request.tipo_alimento is None:
+            raise HTTPException(
+                status_code=422,
+                detail="O tipo de alimento é obrigatório."
+            )
+
+        nutrientes_principais = (
+            "acucares_adicionados",
+            "gorduras_saturadas",
+            "sodio",
+        )
+
+        if not any(
+            getattr(request.valores_nutricionais_100, nutriente) is not None
+            for nutriente in nutrientes_principais
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Informe pelo menos um dos nutrientes utilizados "
+                    "na classificação ALTO EM."
+                )
+            )
+
     initial_state = {
         "request_type": request.request_type,
         "enable_verifier": request.enable_verifier,
@@ -127,8 +158,19 @@ async def analyze(request: AnalysisRequest):
         "image_base64": request.image_base64,
         "product_ids": request.product_ids,
         "user_profile": request.user_profile.model_dump(),
+
         "extracted_ocr_data": None,
         "comparison_data": None,
+
+        "valores_nutricionais_100": (
+            request.valores_nutricionais_100.model_dump()
+            if request.valores_nutricionais_100 is not None
+            else None
+        ),
+        "tipo_alimento": request.tipo_alimento,
+        "categoria_produto": request.categoria_produto,
+        "rotulagem_resultado": None,
+
         "rag_context": [],
         "draft_response": None,
         "matched_sources": [],
@@ -165,5 +207,6 @@ async def analyze(request: AnalysisRequest):
         rag_sources_count=len(final_state.get("matched_sources", [])),
         warnings=final_state.get("warnings", []),
         verification=verification_result,
+        rotulagem=final_state.get("rotulagem_resultado"),
         timestamp=datetime.now(timezone.utc)
     )

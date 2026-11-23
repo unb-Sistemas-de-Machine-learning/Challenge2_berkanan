@@ -25,6 +25,10 @@ class TestGraph(unittest.TestCase):
             "warnings": [],
             "classification_tone": "INCONCLUSIVO",
             "verification_passed": True,
+            "valores_nutricionais_100": None,
+            "tipo_alimento": None,
+            "categoria_produto": "outro",
+            "rotulagem_resultado": None,
             "verification_errors": []
         }
 
@@ -70,6 +74,138 @@ class TestGraph(unittest.TestCase):
         self.assertFalse(result["verification_passed"])
         self.assertTrue(result["draft_response"])
 
+def test_ocr_analysis_classifies_nutritional_values(self):
+        state = self.initial_state.copy()
+
+        state.update({
+            "request_type": "ocr_analysis",
+            "valores_nutricionais_100": {
+                "acucares_adicionados": 16,
+                "gorduras_saturadas": 2,
+                "sodio": 500,
+                "acucares_totais": 18,
+                "carboidratos": 25,
+            },
+            "tipo_alimento": "solido",
+            "categoria_produto": "outro",
+        })
+
+        result = app.invoke(state)
+
+        self.assertEqual(
+            result["rotulagem_resultado"]["status"],
+            "ok"
+        )
+
+        self.assertIn(
+            "acucares_adicionados",
+            result["rotulagem_resultado"]["alto_em"]
+        )
+
+        self.assertEqual(
+            result["classification_tone"],
+            "INCONCLUSIVO"
+        )
+
+        self.assertTrue(result["verification_passed"])
+
+def test_ocr_analysis_respects_anexo_xvi_conditional_category(self):
+        state = self.initial_state.copy()
+
+        state.update({
+            "request_type": "ocr_analysis",
+            "valores_nutricionais_100": {
+                "acucares_adicionados": 20,
+                "gorduras_saturadas": 8,
+                "sodio": 800,
+                "acucares_totais": 22,
+                "carboidratos": 30,
+            },
+            "tipo_alimento": "solido",
+            "categoria_produto": "queijo",
+        })
+
+        result = app.invoke(state)
+
+        self.assertEqual(
+            result["rotulagem_resultado"]["regra_anexo_xvi"],
+            "condicional"
+        )
+
+        self.assertEqual(
+            result["rotulagem_resultado"]["alto_em"],
+            []
+        )
+
+        self.assertTrue(
+            any("Anexo XVI" in aviso for aviso in result["warnings"])
+        )
+
+        self.assertTrue(result["verification_passed"])
+
+def test_ocr_analysis_respects_anexo_xvi_prohibition(self):
+        state = self.initial_state.copy()
+
+        state.update({
+            "request_type": "ocr_analysis",
+            "valores_nutricionais_100": {
+                "acucares_adicionados": 20,
+                "gorduras_saturadas": 8,
+                "sodio": 800,
+                "acucares_totais": 22,
+                "carboidratos": 30,
+            },
+            "tipo_alimento": "solido",
+            "categoria_produto": "leite",
+        })
+
+        result = app.invoke(state)
+
+        self.assertEqual(
+            result["rotulagem_resultado"]["regra_anexo_xvi"],
+            "vedacao"
+        )
+
+        self.assertEqual(
+            result["rotulagem_resultado"]["alto_em"],
+            []
+        )
+
+        self.assertTrue(result["verification_passed"])
+
+def test_ocr_analysis_rejects_inconsistent_values(self):
+        state = self.initial_state.copy()
+
+        state.update({
+            "request_type": "ocr_analysis",
+            "valores_nutricionais_100": {
+                "acucares_adicionados": 10,
+                "gorduras_saturadas": 2,
+                "sodio": 200,
+                "acucares_totais": 30,
+                "carboidratos": 20,
+            },
+            "tipo_alimento": "solido",
+            "categoria_produto": "outro",
+        })
+
+        result = app.invoke(state)
+
+        self.assertEqual(
+            result["rotulagem_resultado"]["status"],
+            "confirmar_valores"
+        )
+
+        self.assertEqual(
+            result["rotulagem_resultado"]["alto_em"],
+            []
+        )
+
+        self.assertTrue(
+            result["rotulagem_resultado"]["inconsistencias"]
+        )
+
+        self.assertTrue(result["verification_passed"])
 
 if __name__ == "__main__":
     unittest.main()

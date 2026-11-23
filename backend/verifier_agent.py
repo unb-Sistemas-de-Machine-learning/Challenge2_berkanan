@@ -114,10 +114,17 @@ def verifier_agent_node(state: AgentState) -> Dict[str, Any]:
     errors = _validate_response(state)
 
     if not errors:
-        if _is_explicitly_inconclusive(state):
+        if state.get("rotulagem_resultado") is not None:
+            # A classificação ALTO EM é determinística e utiliza
+            # os limites normativos definidos em rotulagem.py.
+            # Portanto, não depende de fontes recuperadas pelo RAG.
+            print("-> Verificador: classificação determinística.")
+
+        elif _is_explicitly_inconclusive(state):
             # Uma resposta que declara insuficiência de evidências
             # pode ser válida mesmo sem fontes recuperadas.
             print("-> Verificador: insuficiência declarada.")
+
         else:
             errors.extend(_validate_sources(state))
 
