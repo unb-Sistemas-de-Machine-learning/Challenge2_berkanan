@@ -28,7 +28,8 @@ Cerca de **10 a 12 produtos**, cada um fotografado em **2 ou 3 condições**, nu
 
 - Nome do arquivo: `P<produto>_<condicao>.jpg`. Exemplos: `P01_boa.jpg`, `P01_reflexo.jpg`, `P07_curva.jpg`. O nome sem extensão é o `foto_id`.
 - Guardar o **original** e uma **versão comprimida igual à do app** (~1280 px no maior lado, JPEG, até ~300 KB). O benchmark oficial usa a comprimida, porque é ela que chega ao servidor.
-- **As fotos não vão para o Git** (`testset/fotos/` está no `.gitignore`). Ficam numa pasta compartilhada da equipe; no repositório entram só o gabarito e os resultados.
+- **As fotos não vão para o Git** (`testset/fotos/` está no `.gitignore`). Ficam na pasta compartilhada da equipe no Google Drive (subpastas "originais" e "comprimidas"; link no grupo); no repositório entram só o gabarito e os resultados.
+- **O grupo todo fotografa** (issue #18): cada pessoa tem uma faixa de produtos (P01–P03, P04–P06…), para ninguém repetir nome de arquivo.
 
 ## 3. Cuidados (LGPD)
 
@@ -38,7 +39,7 @@ Cerca de **10 a 12 produtos**, cada um fotografado em **2 ou 3 condições**, nu
 
 ## 4. Como digitar o gabarito
 
-Use [gabarito_fotos_modelo.csv](gabarito_fotos_modelo.csv), com uma linha por foto. Fotos do mesmo produto repetem os valores e mudam só `foto_id` e `condicao`.
+Cada pessoa cria o **seu arquivo** em [gabarito_fotos/](gabarito_fotos/), com o nome da sua faixa (ex.: `P04-P06.csv`), copiando o cabeçalho de [gabarito_fotos_modelo.csv](gabarito_fotos_modelo.csv). Uma linha por foto. Fotos do mesmo produto repetem os valores e mudam só `foto_id` e `condicao`.
 
 | Coluna | Como preencher |
 |---|---|
@@ -72,7 +73,8 @@ Os valores devem ser os **lidos do rótulo**, antes da confirmação do usuário
 
 ```bash
 cd mlops/experiments
-python -m benchmark.extraction testset/gabarito_fotos.csv results/<experimento>/leituras.csv
+python -m benchmark.extraction --validar testset/gabarito_fotos/        # confere todos os gabaritos
+python -m benchmark.extraction testset/gabarito_fotos/ results/<experimento>/leituras.csv
 ```
 
 O resultado mostra, por motor:
