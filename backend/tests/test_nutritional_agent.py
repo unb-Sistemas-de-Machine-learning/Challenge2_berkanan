@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from nutritional_agent import (
@@ -67,6 +68,7 @@ class TestNutritionalAgentDeterministicTone(unittest.TestCase):
         state = {
             "text_query": "Analise o produto",
             "extracted_ocr_data": {
+                "tipo_alimento": "solido",
                 "acucares_adicionados_g": 20,
                 "gorduras_saturadas_g": 7,
                 "sodio_mg": 700,
@@ -247,6 +249,146 @@ class TestNutritionalAgentDeterministicTone(unittest.TestCase):
         nutritional_agent_node(state)
 
         get_taco.assert_not_called()
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[])
+    def test_missing_tipo_is_inconclusive(
+        self,
+        _query,
+        _model,
+        _get_limits,
+        _get_taco,
+    ):
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {
+                "acucares_adicionados_g": 10,
+            },
+            "llm_calls": 0,
+        })
+
+        self.assertEqual(result["classification_tone"], "INCONCLUSIVO")
+        self.assertIn(
+            "Tipo do produto (sólido ou líquido) não informado; "
+            "confirme o tipo antes da análise.",
+            result["warnings"],
+        )
+        self.assertIn("confirmação", result["draft_response"].lower())
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[
+        {"text": "Fonte oficial.", "source": "in_75.pdf", "similarity": 0.9}
+    ])
+    def test_liquid_type_high_sugar_is_evitar(
+        self,
+        _query,
+        _model,
+        _get_limits,
+        _get_taco,
+    ):
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {
+                "tipo_alimento": "liquido",
+                "acucares_adicionados_g": 10,
+            },
+            "llm_calls": 0,
+        })
+
+        self.assertEqual(result["classification_tone"], "EVITAR")
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model")
+    @patch("nutritional_agent.query_knowledge_base", return_value=[
+        {"text": "Fonte oficial.", "source": "in_75.pdf", "similarity": 0.9}
+    ])
+    def test_inconclusive_tone_wins_over_gemini(
+        self,
+        _query,
+        get_model,
+        _get_limits,
+        _get_taco,
+    ):
+        get_model.return_value = SimpleNamespace(
+            models=SimpleNamespace(
+                generate_content=lambda **kwargs: SimpleNamespace(
+                    text=(
+                        '{"draft_response":"Sugestao",'
+                        '"classification_tone":"EVITAR","warnings":[]}'
+                    )
+                )
+            )
+        )
+
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {
+                "tipo_alimento": "solido",
+            },
+            "llm_calls": 0,
+        })
+
+        self.assertEqual(result["classification_tone"], "INCONCLUSIVO")
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[
+        {"text": "Fonte oficial.", "source": "in_75.pdf", "similarity": 0.9}
+    ])
+    def test_missing_allergens_add_warning(
+        self,
+        _query,
+        _model,
+        _get_limits,
+        _get_taco,
+    ):
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {
+                "tipo_alimento": "solido",
+                "acucares_adicionados_g": 5,
+            },
+            "llm_calls": 0,
+        })
+
+        self.assertIn(
+            "Não foi possível ler a linha ALÉRGICOS; confira a embalagem.",
+            result["warnings"],
+        )
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[
+        {"text": "Fonte oficial.", "source": "in_75.pdf", "similarity": 0.9}
+    ])
+    def test_allergen_warning_is_for_user_and_no_internal_instruction(
+        self,
+        _query,
+        _model,
+        _get_limits,
+        _get_taco,
+    ):
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {
+                "tipo_alimento": "solido",
+                "acucares_adicionados_g": 5,
+                "alergicos_contem": "leite",
+                "alergicos_pode_conter": "soja",
+            },
+            "llm_calls": 0,
+        })
+
+        self.assertTrue(any(
+            "Pode conter: soja. Confira sempre a embalagem." == warning
+            for warning in result["warnings"]
+        ))
+        self.assertFalse(any(
+            "Não afirmar" in warning
+            for warning in result["warnings"]
+        ))
 
 
 if __name__ == "__main__":
