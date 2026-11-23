@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from nutritional_agent import (
+    AVISO_SAUDAVEL,
     _deterministic_classification,
     nutritional_agent_node,
 )
@@ -249,6 +250,62 @@ class TestNutritionalAgentDeterministicTone(unittest.TestCase):
         nutritional_agent_node(state)
 
         get_taco.assert_not_called()
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[
+        {"text": "Fonte oficial.", "source": "in_75.pdf", "similarity": 0.9}
+    ])
+    def test_saudavel_includes_fixed_warning(
+        self,
+        _query,
+        _model,
+        _get_limits,
+        _get_taco,
+    ):
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {
+                "tipo_alimento": "solido",
+                "acucares_adicionados_g": 0,
+                "gorduras_saturadas_g": 0,
+                "sodio_mg": 0,
+                "alergicos_contem": "",
+                "alergicos_pode_conter": "",
+            },
+            "llm_calls": 0,
+        })
+
+        self.assertEqual(result["classification_tone"], "SAUDAVEL")
+        self.assertIn(AVISO_SAUDAVEL, result["warnings"])
+
+    @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[
+        {"text": "Fonte oficial.", "source": "in_75.pdf", "similarity": 0.9}
+    ])
+    def test_non_saudavel_has_no_fixed_warning(
+        self,
+        _query,
+        _model,
+        _get_limits,
+        _get_taco,
+    ):
+        result = nutritional_agent_node({
+            "extracted_ocr_data": {
+                "tipo_alimento": "solido",
+                "acucares_adicionados_g": 20,
+                "gorduras_saturadas_g": 0,
+                "sodio_mg": 0,
+                "alergicos_contem": "",
+                "alergicos_pode_conter": "",
+            },
+            "llm_calls": 0,
+        })
+
+        self.assertEqual(result["classification_tone"], "EVITAR")
+        self.assertNotIn(AVISO_SAUDAVEL, result["warnings"])
 
     @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
     @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])

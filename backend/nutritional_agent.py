@@ -18,6 +18,12 @@ logger = logging.getLogger("berkanan.nutritional")
 
 load_dotenv()
 
+AVISO_SAUDAVEL = (
+    "Nenhum nutriente atingiu os limites de ALTO EM da IN 75. Isso não quer dizer "
+    "que o produto seja saudável em todos os aspectos: o Guia Alimentar recomenda "
+    "preferir alimentos in natura ou minimamente processados."
+)
+
 
 def _get_gemini_model() -> Any | None:
     api_key = os.getenv("GEMINI_API_KEY")
@@ -366,6 +372,8 @@ Responda apenas JSON válido com:
         and not any(text in str(warning).lower() for text in forbidden_warning_text)
     ]
     merged_warnings = list(dict.fromkeys(warnings + safe_llm_warnings))
+    if tone == "SAUDAVEL" and AVISO_SAUDAVEL not in merged_warnings:
+        merged_warnings.append(AVISO_SAUDAVEL)
 
     return {
         "draft_response": resultado.get("draft_response")
