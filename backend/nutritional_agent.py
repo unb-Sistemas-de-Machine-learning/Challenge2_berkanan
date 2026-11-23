@@ -111,12 +111,16 @@ def _deterministic_nutrition_analysis(
     dados_produto: dict[str, Any],
     limites: dict | None = None,
 ) -> dict[str, Any]:
-    tipo_value = str(
-        dados_produto.get("tipo_alimento")
-        or dados_produto.get("categoria")
-        or ""
-    ).strip().lower()
-    tipo = "liquido" if "líquid" in tipo_value or "liquid" in tipo_value else "solido"
+    tipo = dados_produto.get("tipo_alimento")
+    if tipo not in {"liquido", "solido"}:
+        return {
+            "status": "confirmar_tipo",
+            "tipo": tipo,
+            "alto_em": [],
+            "nao_avaliados": [],
+            "inconsistencias": [],
+            "avaliacao": {},
+        }
     values = {
         "acucares_adicionados": dados_produto.get("acucares_adicionados_g"),
         "gorduras_saturadas": dados_produto.get("gorduras_saturadas_g"),
@@ -130,7 +134,7 @@ def _deterministic_classification(
     classificacao: dict[str, Any],
 ) -> str:
     """Define o tom sem depender do LLM; o LLM apenas explica o resultado."""
-    if classificacao.get("status") == "confirmar_valores":
+    if classificacao.get("status") in {"confirmar_tipo", "confirmar_valores"}:
         return "INCONCLUSIVO"
 
     relevant_fields = (
@@ -156,6 +160,25 @@ def nutritional_agent_node(state: AgentState) -> dict:
     dados_produto = state.get("extracted_ocr_data") or {}
     if not isinstance(dados_produto, dict):
         dados_produto = {}
+
+    llm_calls = state.get("llm_calls", 0)
+    tipo_alimento = dados_produto.get("tipo_alimento")
+    if tipo_alimento not in {"liquido", "solido"}:
+        return {
+            "draft_response": (
+                "A análise depende da confirmação do tipo do produto "
+                "(sólido ou líquido)."
+            ),
+            "classification_tone": "INCONCLUSIVO",
+            "warnings": [
+                "Tipo do produto (sólido ou líquido) não informado; "
+                "confirme o tipo antes da análise."
+            ],
+            "rag_context": [],
+            "matched_sources": [],
+            "llm_calls": llm_calls,
+        }
+
     dados_produto = _apply_taco_reference(dados_produto)
 
     confirmed_text = state.get("text_query")
@@ -216,17 +239,20 @@ def nutritional_agent_node(state: AgentState) -> dict:
 
     contem = dados_produto.get("alergicos_contem")
     pode_conter = dados_produto.get("alergicos_pode_conter")
+    if contem is None and pode_conter is None:
+        warnings.append(
+            "Não foi possível ler a linha ALÉRGICOS; confira a embalagem."
+        )
     if contem:
         warnings.append(f"Alérgenos declarados: {contem}. Confira a embalagem física.")
     if pode_conter:
         warnings.append(
-            f"Pode conter: {pode_conter}. Não afirmar que o produto é livre de alergênicos."
+            f"Pode conter: {pode_conter}. Confira sempre a embalagem."
         )
     warnings.append(
         "O sistema é informativo e não substitui médico, nutricionista ou prescrição."
     )
 
-    llm_calls = state.get("llm_calls", 0)
     model = _get_gemini_model()
     llm_limit = _get_llm_call_limit()
     resultado: dict[str, Any]
@@ -319,14 +345,27 @@ Responda apenas JSON válido com:
     if tone not in {"SAUDAVEL", "ATENCAO", "EVITAR", "INCONCLUSIVO", "ERRO"}:
         tone = "INCONCLUSIVO"
 
-    if deterministic_tone != "INCONCLUSIVO":
+    if deterministic_tone == "INCONCLUSIVO":
+        tone = "INCONCLUSIVO"
+    else:
         tone = deterministic_tone
 
     llm_warnings = resultado.get("warnings", [])
     if not isinstance(llm_warnings, list):
         llm_warnings = []
 
-    merged_warnings = list(dict.fromkeys(warnings + [str(w) for w in llm_warnings if w]))
+    forbidden_warning_text = (
+        "não afirmar",
+        "não declare",
+        "nunca afirmar",
+    )
+    safe_llm_warnings = [
+        str(warning)
+        for warning in llm_warnings
+        if warning
+        and not any(text in str(warning).lower() for text in forbidden_warning_text)
+    ]
+    merged_warnings = list(dict.fromkeys(warnings + safe_llm_warnings))
 
     return {
         "draft_response": resultado.get("draft_response")
