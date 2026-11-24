@@ -8,7 +8,8 @@ Este diretório concentra utilitários operacionais, scripts e configurações d
 - **Orquestração Local (Desenvolvimento):** [compose.yaml](../compose.yaml)
 - **Variáveis de Ambiente Locais:** [.env.example](../.env.example)
 - **Stack de Staging/Produção na Azure (`brazilsouth`):**
-  - [infra/azure/compose.prod.yaml](azure/compose.prod.yaml) (Caddy TLS + Backend + PostgreSQL + ChromaDB)
+  - [infra/azure/PLAYBOOK.md](azure/PLAYBOOK.md) (playbook operacional completo: ajuste de Dockerfiles por PR, orçamento de RAM, runbook, backup e troubleshooting)
+  - [infra/azure/compose.prod.yaml](azure/compose.prod.yaml) (Caddy TLS + Backend + PostgreSQL + ChromaDB + `model_cache`)
   - [infra/azure/Caddyfile](azure/Caddyfile) (HTTPS automático, CORS e limite de payload `512KB`)
   - [infra/azure/.env.prod.example](azure/.env.prod.example) (template de variáveis de produção)
   - [infra/azure/bootstrap_stack.sh](azure/bootstrap_stack.sh) (subida idempotente + `migrate.sh` + `ingest_chroma.py` + healthcheck)

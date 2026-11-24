@@ -59,6 +59,8 @@ services:
       RAG_WARMUP_TIMEOUT_SECONDS: ${RAG_WARMUP_TIMEOUT_SECONDS:-20}
     expose:
       - "8000"
+    volumes:
+      - model_cache:/home/appuser/.cache
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,17 +96,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../../migrations/001_fontes.sql:/docker-entrypoint-initdb.d/001_fontes.sql:ro
-      - ../../migrations/002_taco_limites.sql:/docker-entrypoint-initdb.d/002_taco_limites.sql:ro
-      - ../../migrations/003_cache.sql:/docker-entrypoint-initdb.d/003_cache.sql:ro
-      - ../../migrations/004_metricas.sql:/docker-entrypoint-initdb.d/004_metricas.sql:ro
-      - ../../migrations/005_atualiza_fontes.sql:/docker-entrypoint-initdb.d/005_atualiza_fontes.sql:ro
-      - ../../migrations/006_verificacao_links.sql:/docker-entrypoint-initdb.d/006_verificacao_links.sql:ro
-      - ../../migrations/007_carga_taco.sql:/docker-entrypoint-initdb.d/007_carga_taco.sql:ro
-      - ../../migrations/008_limites_in75.sql:/docker-entrypoint-initdb.d/008_limites_in75.sql:ro
-      - ../../migrations/009_fontes_oms.sql:/docker-entrypoint-initdb.d/009_fontes_oms.sql:ro
-      - ../../migrations/010_conferencia_fontes.sql:/docker-entrypoint-initdb.d/010_conferencia_fontes.sql:ro
-      - ../../migrations/011_fontes_alergenicos.sql:/docker-entrypoint-initdb.d/011_fontes_alergenicos.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-berkanan_user} -d $${POSTGRES_DB:-berkanan_prod}"]
       interval: 10s
@@ -150,5 +141,6 @@ networks:
 volumes:
   postgres_data:
   chroma_data:
+  model_cache:
   caddy_data:
   caddy_config:

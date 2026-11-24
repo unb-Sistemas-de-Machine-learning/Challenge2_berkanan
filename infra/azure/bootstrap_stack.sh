@@ -65,12 +65,16 @@ echo "=== 4. Construindo imagem do backend ==="
 
 echo "=== 5. Verificando coleção ChromaDB (${CHROMA_COLLECTION:-base_conhecimento_v2}) ==="
 COLLECTION_NAME="${CHROMA_COLLECTION:-base_conhecimento_v2}"
+MODEL_CACHE_VOL="challenge2-berkanan-prod_model_cache"
+docker volume create "${MODEL_CACHE_VOL}" >/dev/null
+
 CHROMA_COUNT="$(
   docker run --rm \
     --network "${NETWORK_NAME}" \
     -e CHROMA_HOST=chromadb \
     -e CHROMA_PORT=8000 \
     -e CHROMA_COLLECTION="${COLLECTION_NAME}" \
+    -v "${MODEL_CACHE_VOL}:/home/appuser/.cache" \
     berkanan/challenge2-backend:prod \
     python3 -c '
 import os, chromadb
@@ -101,6 +105,7 @@ if [[ "${FORCE_REINDEX}" == "1" || "${CHROMA_COUNT}" -eq 0 ]]; then
     -e POSTGRES_DB="${POSTGRES_DB:-berkanan_prod}" \
     -e POSTGRES_USER="${POSTGRES_USER:-berkanan_user}" \
     -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" \
+    -v "${MODEL_CACHE_VOL}:/home/appuser/.cache" \
     -v "${REPO_ROOT}/data:/workspace/data:ro" \
     -v "${REPO_ROOT}/scripts:/workspace/scripts:ro" \
     berkanan/challenge2-backend:prod \

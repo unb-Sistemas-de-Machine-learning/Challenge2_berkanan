@@ -54,6 +54,8 @@ flowchart LR
 
 ### 2.2 Passo a Passo de Provisionamento e Deploy na Azure
 
+> **Guia operacional detalhado:** consulte o playbook completo em [infra/azure/PLAYBOOK.md](../../infra/azure/PLAYBOOK.md) para ajustes de `Dockerfile` após os merges de #40/#24/frontend, orçamento de RAM na VM `Standard_B2ms`, validação de DNS, backup `pg_dump` e troubleshooting.
+
 1. **Provisionar infraestrutura base na Azure** (revise em `--dry-run` antes de aplicar):
    ```bash
    ADMIN_CIDR="SEU_IP_PUBLICO/32" bash infra/azure/provision_azure_cli.sh --dry-run
