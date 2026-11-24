@@ -8,7 +8,9 @@ on:
       - "feat/**"
       - "fix/**"
       - "chore/**"
+      - "docs/**"
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,7 +21,7 @@ concurrency:
 
 jobs:
   backend-and-baseline:
-    name: Validar Baseline, Sintaxe e Smoke Tests (Python)
+    name: Validar Baseline, Testes e Smoke Tests (Python)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -36,14 +38,26 @@ jobs:
       - name: Verificar integridade SHA-256 do baseline e fontes de contexto
         run: python3 scripts/verify_baseline.py
 
-      - name: Instalar dependências do backend
+      - name: Instalar e verificar dependências do backend
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -r backend/requirements.txt
+          python3 -m pip check
 
-      - name: Validar sintaxe Python (backend e scripts)
+      - name: Validar sintaxe Python e Shell
         run: |
-          python3 -m py_compile backend/main.py backend/graph.py backend/schemas.py backend/state.py backend/database.py backend/chroma_client.py scripts/verify_baseline.py scripts/verify_db_integration.py scripts/ingest_chroma.py
+          python3 -m compileall -q backend scripts mlops/experiments
+          bash -n scripts/smoke_backend.sh migrations/migrate.sh infra/scripts/check_compose.sh infra/azure/bootstrap_stack.sh infra/azure/provision_azure_cli.sh
+
+      - name: Executar testes unitários do backend
+        run: |
+          cd backend
+          python3 -m unittest discover -s tests -v
+
+      - name: Executar testes unitários dos benchmarks MLOps (Issue #14)
+        run: |
+          cd mlops/experiments
+          python3 -m unittest discover -s tests -t . -v
 
       - name: Executar smoke tests da API FastAPI
         run: bash scripts/smoke_backend.sh
@@ -57,7 +71,7 @@ jobs:
       - name: Checkout do repositório
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Validar configuração do Docker Compose
+      - name: Validar configuração do Docker Compose (local e Azure)
         run: bash infra/scripts/check_compose.sh
 
       - name: Construir imagem Docker do backend
