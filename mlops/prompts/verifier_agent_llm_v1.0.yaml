@@ -1,0 +1,21 @@
+prompt_id: "verifier_agent_llm"
+version: "v1.0"
+status: "EM_BENCHMARK"
+owner_role: "R5"
+created_at: "2026-11-25"
+source_code_ref: "backend/verifier_agent.py#L218-L227"
+compatible_models:
+  - "gemini-*"
+system_constraints_enforced:
+  - "Resposta binaria estrita: aceita apenas 'SIM' exato para aprovacao (Configuracao C - ADR-005)"
+  - "Respeita limite maximo global de chamadas ao LLM por resposta (MAX_LLM_CALLS_PER_RESPONSE=2 - ADR-004)"
+  - "Adocao condicional em producao sujeita ao criterio do benchmark (#16): >= +5 pp de fidelidade sobre Config. B com <= +3 s de latencia adicional"
+template: |
+  Resposta gerada:
+  {state.get("draft_response")}
+
+  Fontes usadas:
+  {state.get("matched_sources")}
+
+  A resposta está 100% suportada pelas fontes?
+  Responda apenas 'SIM' ou 'NAO'.
