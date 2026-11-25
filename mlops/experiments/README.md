@@ -121,3 +121,24 @@ Faz cada pergunta do conjunto ao ChromaDB com a mesma função do backend (`quer
 python -m benchmark.recall --validar                                  # confere o gabarito contra data/fontes_rag
 python -m benchmark.recall --k 3 --collection base_conhecimento_v1    # mede (ChromaDB no ar)
 ```
+
+### 3.3 Conjunto de validação (`testset/conjunto_validacao.csv`)
+
+> **Status:** `IMPLEMENTADO` em 22/11/2026, com 25 perguntas (A 7, B 7, E 5, F 6) e gabarito de recall em [testset/recall_gabarito_validacao.csv](testset/recall_gabarito_validacao.csv).
+
+**Por que existe:** a primeira medição da `base_conhecimento_v2` deu 100% de recall porque a busca tinha regras escritas para as perguntas do conjunto de teste (ver `docs/processo/historico_ml.md`, seção 5.4). Um conjunto só mede alguma coisa enquanto não é usado para ajustar o sistema.
+
+| Conjunto | Para quê | Pode ajustar o sistema olhando para ele? |
+|---|---|---|
+| **Validação** (25 perguntas) | Testar cada mudança na busca (modelo, tamanho do trecho, pesos, regras genéricas) | **Sim**, mas só com mudanças genéricas: nada de regras ou textos tirados das perguntas ou do gabarito |
+| **Teste** (50 perguntas, 30 com fonte) | Medição final e resultados do relatório | **Não.** Fica congelado |
+
+**Como as perguntas foram feitas:** escritas com palavras diferentes das do teste (no máximo 50% de palavras em comum com qualquer pergunta do teste); parte cobre os mesmos temas e parte cobre temas novos das mesmas fontes. Os trechos-chave foram escolhidos lendo as fontes, sem olhar o que a busca recupera, e conferidos literalmente nos textos da v2. Trechos genéricos demais (que aparecem em muitas páginas) foram trocados por trechos específicos, para não inflar o recall.
+
+```bash
+python -m benchmark.recall --validar --testset testset/conjunto_validacao.csv --gabarito testset/recall_gabarito_validacao.csv
+python -m benchmark.recall --k 3 --collection base_conhecimento_v2 \
+    --testset testset/conjunto_validacao.csv --gabarito testset/recall_gabarito_validacao.csv
+```
+
+**Linha de base (22/11, `base_conhecimento_v2` sem as regras do teste): 28,0%** (A 57%, B 14%, E 40%, F 0%). No teste, a mesma busca dá 53,3%: a busca generaliza mal para perguntas novas, principalmente em rotulagem e OMS.

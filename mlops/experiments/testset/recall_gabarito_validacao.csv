@@ -1,0 +1,26 @@
+ID,documento_esperado,trechos_chave,pagina_referencia,observacao
+AV01,Guia Alimentar para a População Brasileira,a base de sua alimentação,"27, 50",
+AV02,Guia Alimentar para a População Brasileira,nutricionalmente desbalanceados,"40, 51, 127",
+AV03,Guia Alimentar para a População Brasileira,comer em companhia,"92, 97, 98",
+AV04,Guia Alimentar para a População Brasileira,frutas em calda,"27, 37, 39",
+AV05,Guia Alimentar para a População Brasileira,"desenvolver, exercitar e partilhar habilidades culinárias",128,
+AV06,Guia Alimentar para a População Brasileira,nuggets,42,
+AV07,Guia Alimentar para a População Brasileira,submetidos a processos de limpeza,30,
+BV01,RDC 429/2020,única superfície contínua,,Art. 14
+BV02,RDC 429/2020,inferior a 35 cm2,,"Art. 18, § 3º"
+BV03,RDC 429/2020,requerem preparo com adição de outros ingredientes,,"Arts. 8º e 19"
+BV04,IN 75/2020,"queijos, desde que",,"Anexo XVI, item 6"
+BV05,IN 75/2020,2.000 mg,,Anexo II
+BV06,RDC 429/2020,12 (doze) meses,,Art. 50
+BV07,RDC 429/2020,outros modelos de rotulagem nutricional frontal,,Art. 23
+EV01,RDC 727/2022,alérgicos: contém (nomes comuns,,Art. 13
+EV02,RDC 727/2022,"trigo, centeio, cevada",,Anexo III
+EV03,Lei 10.674/2003,não contém glúten,,Art. 1º
+EV04,RDC 727/2022,100 (cem) miligramas,,Art. 18
+EV05,RDC 727/2022,pode conter (nomes comuns,,Art. 14
+FV01,OMS – Guideline: Sodium intake for adults and children,adjusted downward,"10, 26",
+FV02,OMS – Guideline: Sugars intake for adults and children,free sugars include || naturally present in honey,"9, 12, 14",
+FV03,OMS – Guideline: Sugars intake for adults and children,unhealthy weight gain || risk of dental caries,"10, 13, 14",
+FV04,OMS – Guideline: Sodium intake for adults and children,reduction in blood pressure || decrease in blood pressure || reduced blood pressure,"10, 14, 20",
+FV05,Diretrizes da Sociedade Brasileira de Diabetes (SBD),edulcorantes não nutritivos,1,
+FV06,Diretrizes da Sociedade Brasileira de Diabetes (SBD),contagem de carboidratos,1,

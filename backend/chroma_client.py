@@ -60,168 +60,6 @@ _STOPWORDS = {
     "sua", "suas", "tem", "tenho", "um", "uma", "umas", "uns", "vale", "voce",
 }
 
-# Expansão determinística de conceitos normativos e ponte bilíngue PT -> EN (diretrizes OMS)
-_DOMAIN_RULES: list[tuple[tuple[str, ...], list[str], list[str]]] = [
-    # Categoria A / D04 — Guia Alimentar
-    (
-        ("categorias", "grau de processamento"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["quatro categorias de alimentos", "tipo de processamento"],
-    ),
-    (
-        ("regra de ouro",),
-        ["Guia Alimentar para a População Brasileira"],
-        ["a regra de ouro. prefira sempre alimentos in natura", "prefira sempre alimentos in natura ou minimamente processados"],
-    ),
-    (
-        ("o que e", "ultraprocessado"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["alimentos ultraprocessados sao formulacoes industriais", "formulacoes industriais feitas inteiramente ou majoritariamente"],
-    ),
-    (
-        ("oleo", "sal", "acucar"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["utilize oleos, gorduras, sal e acucar em pequenas quantidades"],
-    ),
-    (
-        ("pao", "queijo"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["limite o uso de alimentos processados", "paes de forma"],
-    ),
-    (
-        ("reconheco", "lista de ingredientes"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["numero elevado de ingredientes (frequentemente cinco ou mais", "frequentemente cinco ou mais"],
-    ),
-    (
-        ("refrigerante", "biscoito recheado"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["exemplos incluem refrigerantes, biscoitos recheados", "como biscoitos recheados"],
-    ),
-    (
-        ("arroz", "feijao"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["feijao de todas as cores", "arroz branco, integral ou parboilizado"],
-    ),
-    (
-        ("publicidade",),
-        ["Guia Alimentar para a População Brasileira"],
-        ["ser critico quanto a informacoes, orientacoes e mensagens sobre alimentacao veiculadas em propagandas comerciais"],
-    ),
-    (
-        ("quantos passos", "alimentacao adequada e saudavel"),
-        ["Guia Alimentar para a População Brasileira"],
-        ["dez passos para uma alimentacao adequada e saudavel"],
-    ),
-    (
-        ("iogurte",),
-        ["Guia Alimentar para a População Brasileira"],
-        ["iogurte (sem adicao de acucar)", "iogurtes e bebidas lacteas adocados e aromatizados"],
-    ),
-    # Categoria B — RDC 429/2020 e IN 75/2020
-    (
-        ("nutrientes", "obrigatorios", "tabela"),
-        ["RDC 429/2020"],
-        ["art. 5", "a tabela de informacao nutricional deve conter a declaracao das quantidades de"],
-    ),
-    (
-        ("100 g", "porcao"),
-        ["RDC 429/2020"],
-        ["art. 8", "100 gramas (g), para solidos ou semissolidos, ou 100 mililitros (ml), para liquidos"],
-    ),
-    (
-        ("lupa", "frente da embalagem"),
-        ["RDC 429/2020"],
-        ["art. 18", "a declaracao da rotulagem nutricional frontal e obrigatoria"],
-    ),
-    (
-        ("acucar adicionado", "alto em"),
-        ["IN 75/2020"],
-        ["anexo xv", "maior ou igual a 15 g de acucares adicionados por 100 g"],
-    ),
-    (
-        ("gordura saturada", "alto em"),
-        ["IN 75/2020"],
-        ["anexo xv", "maior ou igual a 6 g de gorduras saturadas por 100 g", "maior ou igual a 3 g de gorduras saturadas por 100 ml"],
-    ),
-    (
-        ("gordura saturada", "bebidas"),
-        ["IN 75/2020"],
-        ["anexo xv", "maior ou igual a 3 g de gorduras saturadas por 100 ml"],
-    ),
-    (
-        ("sodio", "alto em"),
-        ["IN 75/2020"],
-        ["anexo xv", "maior ou igual a 600 mg de sodio por 100 g"],
-    ),
-    (
-        ("bebidas", "liquidos"),
-        ["IN 75/2020"],
-        ["anexo xv", "maior ou igual a 7,5 g de acucares adicionados por 100 ml", "maior ou igual a 3 g de gorduras saturadas por 100 ml", "maior ou igual a 300 mg de sodio por 100 ml"],
-    ),
-    (
-        ("diferenca", "acucares totais", "acucares adicionados"),
-        ["RDC 429/2020"],
-        ["art. 2", "acucares adicionados: todos os monossacarideos e dissacarideos", "acucares totais: todos os monossacarideos"],
-    ),
-    (
-        ("desde quando", "rotulagem nutricional"),
-        ["RDC 429/2020"],
-        ["art. 50", "art. 51", "entra em vigor apos decorridos 24 (vinte e quatro) meses", "prazo de 12 (doze) meses para adequacao"],
-    ),
-    (
-        ("%vd",),
-        ["IN 75/2020", "RDC 429/2020"],
-        ["anexo ii", "2.000 kcal", "valor energetico — vdr (unidade): 2.000 kcal", "adicionalmente em %vd"],
-    ),
-    # Categoria E — Alergênicos, Glúten e Lactose (RDC 727/2022 e Lei 10.674/2003)
-    (
-        ("alergicos",),
-        ["RDC 727/2022"],
-        ["art. 13", "art. 14", "alergicos: contem", "alergicos: pode conter"],
-    ),
-    (
-        ("contem", "pode conter"),
-        ["RDC 727/2022"],
-        ["art. 13", "art. 14", "alergicos: contem", "alergicos: pode conter", "contaminacao cruzada"],
-    ),
-    (
-        ("gluten",),
-        ["Lei 10.674/2003"],
-        ["art. 1", "contem gluten", "nao contem gluten"],
-    ),
-    (
-        ("celiaca",),
-        ["Lei 10.674/2003"],
-        ["art. 1", "contem gluten", "nao contem gluten"],
-    ),
-    (
-        ("lactose",),
-        ["RDC 727/2022"],
-        ["art. 18", "contem lactose", "100 (cem) miligramas"],
-    ),
-    # Categoria F — OMS (PT -> EN) e SBD
-    (
-        ("acucar", "oms"),
-        ["OMS – Guideline: Sugars intake for adults and children", "Diretrizes sobre açúcares e sódio"],
-        ["less than 10% of total energy intake", "below 5% of total energy intake", "free sugars"],
-    ),
-    (
-        ("sodio", "oms"),
-        ["OMS – Guideline: Sodium intake for adults and children"],
-        ["<2 g/day sodium (5 g/day salt)", "reduce sodium intake to <2 g/day"],
-    ),
-    (
-        ("diabetes",),
-        ["Diretrizes da Sociedade Brasileira de Diabetes (SBD)", "IN 75/2020"],
-        ["acompanhamento individualizado da terapia nutricional, com nutricionista", "anexo xv", "maior ou igual a 15 g de acucares adicionados por 100 g"],
-    ),
-    (
-        ("hipertensao", "sodio"),
-        ["IN 75/2020", "OMS – Guideline: Sodium intake for adults and children"],
-        ["anexo xv", "maior ou igual a 600 mg de sodio por 100 g", "<2 g/day sodium (5 g/day salt)"],
-    ),
-]
 
 
 def _norm_text(text: str) -> str:
@@ -487,14 +325,14 @@ def _compute_hybrid_score(
     query_tokens: list[str],
     record: dict[str, Any],
     dense_sim: float,
-    matched_rules: list[tuple[list[str], list[str]]],
 ) -> float:
-    """Combina similaridade vetorial densa com pontuação lexical e regras normativas."""
+    """Combina similaridade vetorial densa com pontuação lexical (palavras e bigramas da consulta).
+
+    Não usa regras escritas para perguntas específicas: a pontuação depende só do texto da
+    consulta e do trecho, para o recall medido com o conjunto de teste valer para perguntas novas.
+    """
     doc_norm = record["norm_text"]
     doc_tokens: set[str] = record["tokens"]
-    meta = record["meta"]
-    doc_title = str(meta.get("documento", ""))
-    doc_title_norm = _norm_text(doc_title)
 
     # 1. Sobreposição lexical de tokens e bigramas da consulta
     if query_tokens:
@@ -509,17 +347,7 @@ def _compute_hybrid_score(
         bg_hits = sum(1 for bg in bigrams if bg in doc_norm)
         bigram_bonus = 0.15 * (bg_hits / len(bigrams))
 
-    # 2. Bônus determinístico de domínio normativo / ponte bilíngue PT-EN
-    rule_bonus = 0.0
-    for target_docs, key_phrases in matched_rules:
-        doc_matches = any(_norm_text(td) == doc_title_norm for td in target_docs)
-        if doc_matches:
-            rule_bonus += 0.22
-            phrase_hits = sum(1 for kp in key_phrases if kp in doc_norm)
-            if phrase_hits > 0:
-                rule_bonus += 0.48 + min(0.25, 0.10 * (phrase_hits - 1))
-
-    return (0.50 * dense_sim) + (0.35 * lexical_score) + bigram_bonus + rule_bonus
+    return (0.50 * dense_sim) + (0.35 * lexical_score) + bigram_bonus
 
 
 def query_knowledge_base(
@@ -582,16 +410,12 @@ def query_knowledge_base(
 
         q_norm = _norm_text(query)
         q_tokens = _tokenize(query)
-        matched_rules: list[tuple[list[str], list[str]]] = []
-        for triggers, target_docs, key_phrases in _DOMAIN_RULES:
-            if all(_norm_text(tr) in q_norm for tr in triggers):
-                matched_rules.append((target_docs, [_norm_text(kp) for kp in key_phrases]))
 
         scored: list[tuple[float, dict[str, Any]]] = []
         for rec in pool:
             cid = rec["id"]
             d_sim = dense_by_id.get(cid, 0.25)
-            h_score = _compute_hybrid_score(q_norm, q_tokens, rec, d_sim, matched_rules)
+            h_score = _compute_hybrid_score(q_norm, q_tokens, rec, d_sim)
             scored.append((h_score, rec))
 
         scored.sort(key=lambda item: item[0], reverse=True)

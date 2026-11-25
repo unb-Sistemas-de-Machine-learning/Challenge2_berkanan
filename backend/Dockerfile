@@ -4,19 +4,30 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HF_HOME=/app/.cache/huggingface \
+    SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence-transformers \
+    CHROMA_CACHE_DIR=/app/.cache/chroma \
     APP_ENV=development \
     HOST=0.0.0.0 \
     PORT=8000
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-por \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --gid 10001 appgroup && \
     useradd --uid 10001 --gid appgroup --shell /usr/sbin/nologin --create-home appuser
 
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN mkdir -p /app/.cache/huggingface /app/.cache/sentence-transformers /app/.cache/chroma
 
-COPY --chown=appuser:appgroup main.py graph.py schemas.py state.py coordinator.py comparison_agent.py verifier_agent.py rotulagem.py database.py chroma_client.py ocr_extraction.py README.md test_api.sh /app/
+RUN python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')" \
+    || echo "Aviso: falha no pre-download do modelo all-MiniLM-L6-v2; ele sera carregado sob demanda."
+RUN chown -R appuser:appgroup /app/.cache
+
+COPY --chown=appuser:appgroup main.py graph.py schemas.py state.py coordinator.py comparison_agent.py verifier_agent.py nutritional_agent.py rotulagem.py database.py chroma_client.py ocr_extraction.py README.md test_api.sh /app/
 
 USER appuser
 

@@ -44,3 +44,11 @@ chmod +x test_api.sh
 *   `state.py`: Contrato interno dos agentes (`AgentState`).
 *   `schemas.py`: Contratos de entrada e saída (Pydantic).
 *   `test_api.sh`: Script para testar a API via `curl`.
+
+## Contrato do agente nutricional
+
+`AnalysisRequest.verifier_mode` aceita `"rules"` (verificador determinístico, Configuração B)
+ou `"llm"` (verificador Configuração C ligável). `enable_verifier=false` desliga ambos.
+
+`AnalysisResponse.llm_calls` informa quantas tentativas ao LLM foram realizadas na resposta.
+O máximo é controlado por `MAX_LLM_CALLS_PER_RESPONSE` (padrão `2`) e configurado no ambiente.
