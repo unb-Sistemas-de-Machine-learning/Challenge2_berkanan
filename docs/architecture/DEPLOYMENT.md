@@ -24,7 +24,7 @@ flowchart LR
 
 | Serviço | Imagem / Build | Porta Interna | Porta Host (padrão local) | Volume Persistente | Status da Integração no Código |
 |---|---|---|---|---|---|
-| `backend` | Build local (`./backend/Dockerfile`, base `python:3.12.7-slim-bookworm`) | `8000` | `127.0.0.1:8000` | Sem estado (stateless) | `IMPLEMENTADO` (`main:api`, `/health`, `/api/analyze`, telemetria; agente nutricional real em PR #40) |
+| `backend` | Build local (`./backend/Dockerfile`, base `python:3.12.7-slim-bookworm`) | `8000` | `127.0.0.1:8000` | Sem estado (stateless) | `IMPLEMENTADO` (`main:api`, `/health`, `/api/analyze`, agente nutricional + RAG + Config. C + OCR pytesseract + `llm_calls` via PR #40) |
 | `postgres` | `postgres:16.4-alpine` | `5432` | `127.0.0.1:5432` | `postgres_data` | `IMPLEMENTADO` (migrações `001`–`011` montadas em `/docker-entrypoint-initdb.d`, `database.py`) |
 | `chromadb` | `chromadb/chroma:0.5.20` | `8000` | `127.0.0.1:8001` | `chroma_data` | `IMPLEMENTADO` (`chroma_client.py`, `scripts/ingest_chroma.py`, coleção `base_conhecimento_v2`) |
 | `frontend` | *Não incluído ainda* | — | — | — | `PENDENTE` (aguardando entrega React/Vite por R5) |

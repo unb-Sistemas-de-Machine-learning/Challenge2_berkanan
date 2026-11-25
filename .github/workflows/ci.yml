@@ -23,7 +23,7 @@ jobs:
   backend-and-baseline:
     name: Validar Baseline, Testes e Smoke Tests (Python)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -65,7 +65,7 @@ jobs:
   docker-and-compose:
     name: Validar Containers Docker e Docker Compose
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     needs: backend-and-baseline
     steps:
       - name: Checkout do repositório

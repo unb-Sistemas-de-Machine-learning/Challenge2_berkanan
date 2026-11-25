@@ -12,8 +12,8 @@ Este playbook organiza **o que precisa estar pronto nos containers Docker** ante
 
 | Fase | Gatilho no Repositório | O que muda nos Containers | Pronto para subir? |
 |---|---|---|---|
-| **Fase 0 — Base Infra (`main` + `infra/devops-mlops-azure`)** | Merge desta branch na `main` | 4 containers (`caddy`, `backend`, `postgres`, `chromadb`), TLS automático, `migrate.sh`, ingestão ChromaDB (`base_conhecimento_v2`) e volume `model_cache` | **SIM** (API ainda com agente nutricional simulado até #40 entrar) |
-| **Fase 1 — Agente Real + Gemini + Tesseract** | Merge do **PR #40** (`feat/api-r5`) e **PR #45** (`feat/anexo-xvi`) | **Otimizar `backend/Dockerfile`** (PyTorch CPU-only + pré-download do modelo multilíngue correto; detalhes na Seção 3.1) | Após merge + PR rápido de otimização Docker |
+| **Fase 0 — Base Infra (`infra/devops-mlops-azure`)** | Concluída em `infra/devops-mlops-azure` (pronta para PR → `main`) | 4 containers (`caddy`, `backend`, `postgres`, `chromadb`), TLS automático, `migrate.sh`, ingestão ChromaDB (`base_conhecimento_v2`) e volume `model_cache` | **CONCLUÍDA NA BRANCH** |
+| **Fase 1 — Agente Real + Gemini + Tesseract (Estado Atual Pós-Merge #40–#44)** | **PRs #40–#44 já mergeados na `main` (`335d0d7`)**; falta apenas **PR #45** (`feat/anexo-xvi`) | **Otimizar `backend/Dockerfile`** (PyTorch CPU-only + pré-download do modelo multilíngue correto; detalhes na Seção 3.1) antes de subir em produção na VM | **PRÓXIMO PASSO IMEDIATO** |
 | **Fase 2 — Motor OCR Definitivo** | Decisão da **Issue #24** (benchmark Tesseract vs PaddleOCR, pós 27/11) | Manter apenas `tesseract-ocr` ou trocar dependências de sistema/cache para `paddleocr` (Seção 3.2) | Pós-decisão de R3 |
 | **Fase 3 — Interface Mobile First** | Entrega do projeto React/Vite em `frontend/` por R5 | Publicar no **Azure Static Web Apps** (padrão) ou servir `dist/` via container/Caddy (Plano B, Seção 3.3) | Pós-entrega de R5 |
 
@@ -40,8 +40,8 @@ Este playbook organiza **o que precisa estar pronto nos containers Docker** ante
 
 ## 3. Ajustes Obrigatórios de Dockerfile por Gatilho de Merge
 
-### 3.1 Gatilho 1 — Logo após o merge do PR #40 (`feat/api-r5`)
-O PR #40 adiciona `sentence-transformers>=3.3.1` em `backend/requirements.txt` e faz pré-download de `all-MiniLM-L6-v2` no `backend/Dockerfile`. **Antes de fazer build na VM Azure**, abra um PR curto de R6 ajustando `backend/Dockerfile` pelos dois motivos críticos abaixo:
+### 3.1 Gatilho 1 — Pós-merge do PR #40 (já na `main` em `335d0d7`)
+O PR #40 adicionou `sentence-transformers>=3.3.1` em `backend/requirements.txt` e o pré-download de `all-MiniLM-L6-v2` no `backend/Dockerfile`. **Antes de fazer o deploy definitivo na VM Azure**, execute o PR curto de otimização de R6 ajustando `backend/Dockerfile` pelos dois motivos críticos abaixo:
 1. Sem `--index-url https://download.pytorch.org/whl/cpu`, o `pip` baixa o **PyTorch com CUDA (~3,5–4,5 GB extras)** desnecessários na VM sem GPU.
 2. A coleção `base_conhecimento_v2` usa `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (não `all-MiniLM-L6-v2`).
 

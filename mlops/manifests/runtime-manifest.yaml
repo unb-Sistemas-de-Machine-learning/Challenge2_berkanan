@@ -9,17 +9,19 @@ configuration:
   environment: "development / azure-staging"
   status: "PARTIAL_INTEGRATION_STAGING_READY"
   code_baseline_id: "backend-whatsapp-v0.1.0"
-  code_git_commit: "697aa8499ca908bf80bf4220cac7c89455adf98b"
+  code_git_commit: "335d0d765bf11c01dd38a6a5609f90f5343928d1"
   implemented_in_main:
     - "backend/coordinator.py (roteamento deterministico por regras)"
+    - "backend/nutritional_agent.py (agente nutricional com Gemini + RAG + IN 75/TACO)"
     - "backend/comparison_agent.py (comparacao deterministica)"
-    - "backend/verifier_agent.py (verificador por regras — Config. B)"
+    - "backend/verifier_agent.py (verificador por regras Config. B e por LLM Config. C)"
     - "backend/rotulagem.py (calculo deterministico ALTO EM IN 75/2020)"
-    - "backend/ocr_extraction.py (extracao regex RDC 429, alergenicos e consistencia)"
-    - "backend/database.py e backend/chroma_client.py (PostgreSQL + ChromaDB)"
+    - "backend/ocr_extraction.py (OCR pytesseract + regex RDC 429, alergenicos e consistencia)"
+    - "backend/main.py e backend/schemas.py (verifier_mode, llm_calls reais e aquecimento RAG assincrono)"
+    - "backend/database.py e backend/chroma_client.py (PostgreSQL + ChromaDB sem regras viciadas)"
     - "migrations/001 a 011 + scripts/ingest_chroma.py (base_conhecimento_v2)"
+    - "mlops/experiments/ (conjunto_validacao.csv, gabarito_fotos/ por pessoa e comparar_llm.py)"
   pending_or_in_pr:
-    - "PR #40: agente nutricional real + RAG assincrono + verificador Config. C + OCR pytesseract + llm_calls"
     - "PR #45: excecoes do Anexo XVI da IN 75 (issue #21)"
     - "frontend/: aplicacao web Mobile First React + Vite + Tailwind (R5)"
 
@@ -45,9 +47,9 @@ llm:
 prompts:
   registry_path: "mlops/prompts/"
   coordinator_routing: "deterministic_rules_only (no_llm_prompt)"
-  nutritional_agent_prompt_version: "pending_versioning_in_mlops_prompts (em implementacao no PR #40)"
+  nutritional_agent_prompt_version: "inline_in_nutritional_agent_py (pendente de extracao para mlops/prompts/)"
   comparison_agent_prompt_version: "deterministic_rules_only (no_llm_prompt)"
-  verifier_agent_prompt_version: "pending_versioning_in_mlops_prompts (Config. C no PR #40)"
+  verifier_agent_prompt_version: "inline_in_verifier_agent_py (Config. C — pendente de extracao para mlops/prompts/)"
 
 knowledge_base_rag:
   vector_store: "chromadb"
@@ -88,9 +90,9 @@ ocr_pipeline:
 
 verifier:
   configurable_flag: "enable_verifier"
-  mode_flag: "verifier_mode (rules | llm — PR #40 / issue #13)"
+  mode_flag: "verifier_mode (rules | llm — implementado na main / issue #13)"
   default_enabled: true
-  current_implementation_state: "rules_config_B_implemented_in_main (verifier_agent.py)"
+  current_implementation_state: "rules_config_B_and_llm_config_C_implemented_in_main"
   benchmark_configurations:
     config_A: "Sem verificador (enable_verifier=false)"
     config_B: "Verificacao deterministica por regras em codigo (sem chamada adicional ao LLM)"
