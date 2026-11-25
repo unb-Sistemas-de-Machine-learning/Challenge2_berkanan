@@ -17,7 +17,10 @@ class AnalysisRequest(BaseModel):
     product_ids: Optional[List[str]] = None
     user_profile: UserProfile = Field(default_factory=UserProfile)
     enable_verifier: bool = True
-    verifier_mode: Optional[Literal["rules", "llm"]] = None
+    verifier_mode: Literal["rules", "llm"] = Field(
+        default="rules",
+        description="Modo de verificação para o benchmark",
+    )
     modo_execucao: Literal["rag", "llm_puro"] = "rag"
     categoria_teste: Optional[str] = None
     id_questao_teste: Optional[str] = None
@@ -45,6 +48,10 @@ class AnalysisResponse(BaseModel):
     matched_sources: List[MatchedSource] = []
     timestamp: Optional[datetime] = None
     response_time_ms: int = 0
+    llm_calls: int = Field(
+        default=0,
+        description="Quantidade de chamadas ao LLM na requisição",
+    )
     classification: RecommendationTone = "INCONCLUSIVO"
     confidence_score: float = 1.0
     rag_sources_count: int = 0

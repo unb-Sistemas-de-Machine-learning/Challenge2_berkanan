@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import csv
 import io
+import base64
+import binascii
+import os
 import re
 import unicodedata
 from pathlib import Path
@@ -460,3 +463,67 @@ def write_leituras_csv(rows: list[dict[str, str]], output_path: str | Path | Non
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(content, encoding="utf-8")
     return content
+
+
+def extract_from_image_base64(
+    image_base64: str,
+    max_side_px: int = 1280,
+) -> dict[str, Any]:
+    """Decodifica, pré-processa e executa OCR de uma imagem enviada pela API.
+
+    Não transforma campos ausentes em zero. O chamador deve exigir confirmação do usuário.
+    """
+    if not isinstance(image_base64, str) or not image_base64.strip():
+        return {"ocr_text": "", "extracted": {}, "warning": "Imagem não informada."}
+
+    encoded = image_base64.strip()
+    if "," in encoded and encoded.lower().startswith("data:image/"):
+        encoded = encoded.split(",", 1)[1]
+
+    try:
+        image_bytes = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError):
+        return {"ocr_text": "", "extracted": {}, "warning": "Imagem em base64 inválida."}
+
+    try:
+        from PIL import Image, ImageOps
+    except ImportError:
+        return {
+            "ocr_text": "",
+            "extracted": {},
+            "warning": "Dependência Pillow indisponível no servidor.",
+        }
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as opened:
+            image = ImageOps.exif_transpose(opened).convert("RGB")
+            image.thumbnail((max_side_px, max_side_px), Image.Resampling.LANCZOS)
+            processed = ImageOps.autocontrast(ImageOps.grayscale(image))
+    except Exception:
+        return {"ocr_text": "", "extracted": {}, "warning": "Não foi possível decodificar a imagem."}
+
+    try:
+        import pytesseract
+        ocr_text = pytesseract.image_to_string(
+            processed,
+            lang=os.environ.get("TESSERACT_LANG", "por+eng"),
+        ).strip()
+    except Exception as exc:
+        return {
+            "ocr_text": "",
+            "extracted": {},
+            "warning": f"OCR indisponível: {exc}",
+        }
+
+    if not ocr_text:
+        return {
+            "ocr_text": "",
+            "extracted": extract_label_fields(""),
+            "warning": "Nenhum texto foi extraído da imagem.",
+        }
+
+    extracted = extract_label_fields(
+        ocr_text,
+        normalize_from_portion_if_missing=True,
+    )
+    return {"ocr_text": ocr_text, "extracted": extracted, "warning": None}
