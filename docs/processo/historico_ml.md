@@ -2,7 +2,7 @@
 
 > **Para que serve:** registrar, em ordem, o que fizemos de Machine Learning, por que fizemos, o que medimos e o que aprendemos. É a base da apresentação e do relatório final.
 > **Foco:** dados, modelos, recuperação (RAG), construção do assistente e avaliação. Backend, frontend e banco aparecem só quando explicam uma decisão de ML.
-> **Mantido por:** Gustavo (R3), com contribuições de toda a equipe. Última atualização: 22/11/2026.
+> **Mantido por:** Gustavo (R3), com contribuições de toda a equipe. Última atualização: 24/11/2026.
 
 ## Como registrar uma nova entrada
 
@@ -33,6 +33,7 @@ Resultados ainda não medidos ficam marcados como `PENDENTE`. Nunca registre res
 | 21/11 | Cálculo do "ALTO EM" feito por código, testado com o gabarito | Separar o que o LLM explica do que o código calcula |
 | 21/11 | Avaliação com usuários desenhada | Medir se a resposta **orienta**, não só se está correta |
 | 22/11 | Recall da v2: 100% com regras feitas para o teste, **53%** sem elas | Contaminação pelo conjunto de teste, detectada e corrigida |
+| 22/11 | Conjunto de validação (25 perguntas novas): recall de **28%** | A busca generaliza mal para perguntas com outras palavras |
 
 ---
 
@@ -53,7 +54,7 @@ O problema não era o F1 (que só mede) nem o TF-IDF (que só representa o texto
 1. **Não treinamos nenhum modelo.** Usamos modelos já treinados (embeddings multilíngues e Gemini) e regras e cálculos determinísticos. O conjunto de teste serve **só para avaliar**, nunca para ajustar.
 2. **Quando o mesmo risco apareceu de outra forma** (regras da busca escritas para as perguntas do teste, seção 5.4), ele foi detectado pela própria medição e corrigido.
 3. **O conjunto de teste também é pequeno, então os resultados são estimativas.** Cada pergunta vale 3,3 pontos no recall (30 perguntas) e 2 pontos nas métricas de 50 perguntas. A regra do verificador ("C só fica com ≥ 5 pontos de fidelidade") corresponde a 2 ou 3 respostas, por isso as 3 repetições e a leitura com margem.
-4. **Ajustes vão para um conjunto de validação separado**, com perguntas novas, e o conjunto de teste fica só para a medição final. `PENDENTE`.
+4. **Ajustes vão para um conjunto de validação separado**, com perguntas novas, e o conjunto de teste fica só para a medição final. Criado em 22/11 (seção 5.5).
 
 ---
 
@@ -151,6 +152,22 @@ O que os números mostraram:
 
 **Aprendizado:** resultado perfeito pede auditoria, não comemoração. Um conjunto de teste só mede alguma coisa enquanto não é usado para ajustar o sistema. Para ajustar a busca sem contaminar a medição, é preciso um **conjunto de validação separado**, com perguntas novas escritas com outras palavras.
 
+### 5.5 Conjunto de validação: o 53% era otimista (22/11)
+- **O que fizemos (PR #42):** 25 perguntas novas (Guia 7, rotulagem 7, alergênicos 5, OMS e SBD 6), escritas com palavras diferentes das do teste (no máximo 50% de palavras em comum). Os trechos-chave do gabarito foram escolhidos lendo as fontes, sem olhar o que a busca recupera, e trechos genéricos demais (que aparecem em muitas páginas) foram trocados por específicos.
+- **Regra de uso:** ajustes da busca são testados na **validação**, e só com mudanças genéricas; o **teste** fica congelado para a medição final.
+
+| Busca da v2 | Conjunto de teste (30) | **Validação (25)** |
+|---|---|---|
+| Sem as regras do teste (oficial) | 53,3% | **28,0%** (A 57%, B 14%, E 40%, F 0%) |
+| Com as regras do teste | 100% | 40,0% |
+
+- **A busca generaliza mal:** com perguntas novas, o recall cai de 53% para 28%, e a rotulagem (B) despenca para 14%. Como a v2 foi construída olhando para o conjunto de teste, é natural que funcione melhor nele.
+- **As regras eram quase só memorização:** davam +47 pontos no teste e só +12 na validação. Os 12 pontos vêm de 3 perguntas em que a regra funcionava como **ponte genérica por tema** (sódio e açúcar levando à OMS em inglês, glúten levando à lei), um caminho legítimo para testar na validação, sem copiar frases do gabarito.
+- **Ressalva:** com 25 perguntas, o intervalo de confiança do 28% vai de cerca de 14% a 48%; parte da diferença pode vir da dificuldade das perguntas.
+- **A escolha do modelo reserva (#22) também usa a validação** (`benchmark/comparar_llm.py`, PR #44), pelo mesmo motivo.
+
+**Aprendizado:** um resultado só vale para o conjunto em que foi medido. Medir em perguntas novas mostrou que a distância até a meta de 80% é maior do que o teste indicava.
+
 ---
 
 ## 6. Construção do assistente
@@ -207,7 +224,7 @@ O que os números mostraram:
 
 | Experimento | Métrica e meta | Situação |
 |---|---|---|
-| Recall com a `base_conhecimento_v2` | ≥ 80% no top 3 | **53,3%** em 22/11, abaixo da meta (seção 5.4) |
+| Recall com a `base_conhecimento_v2` | ≥ 80% no top 3 | **53,3%** no teste e **28,0%** na validação em 22/11, abaixo da meta (seções 5.4 e 5.5) |
 | LLM puro × RAG | RAG ≥ 15 pontos acima do LLM puro | `PENDENTE` (modelo Gemini a fixar) |
 | Verificador A × B × C | C fica se ganhar ≥ 5 pts de fidelidade com ≤ 3 s a mais | `PENDENTE` (#12, #13) |
 | Extração do rótulo | ≥ 85% dos campos; falsos negativos de alergênicos | `PENDENTE` (#8, #18) |
