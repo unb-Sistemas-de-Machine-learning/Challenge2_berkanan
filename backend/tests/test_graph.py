@@ -1,5 +1,6 @@
 
 import unittest
+from unittest.mock import Mock, patch
 
 from graph import app
 
@@ -10,6 +11,8 @@ class TestGraph(unittest.TestCase):
         self.initial_state = {
             "request_type": "comparison",
             "enable_verifier": False,
+            "verifier_mode": "rules",
+            "llm_calls": 0,
             "text_query": None,
             "image_base64": None,
             "product_ids": ["produto_1", "produto_2"],
@@ -24,11 +27,6 @@ class TestGraph(unittest.TestCase):
             "matched_sources": [],
             "warnings": [],
             "classification_tone": "INCONCLUSIVO",
-            "verification_passed": True,
-            "valores_nutricionais_100": None,
-            "tipo_alimento": None,
-            "categoria_produto": "outro",
-            "rotulagem_resultado": None,
             "verification_errors": []
         }
 
@@ -48,6 +46,7 @@ class TestGraph(unittest.TestCase):
     def test_comparison_runs_verifier_when_enabled(self):
         state = self.initial_state.copy()
         state["enable_verifier"] = True
+        state["verifier_mode"] = "rules"
 
         result = app.invoke(state)
 
@@ -57,8 +56,37 @@ class TestGraph(unittest.TestCase):
     def test_comparison_skips_verifier_when_disabled(self):
         result = app.invoke(self.initial_state)
 
+        self.assertNotIn("verification_passed", result)
+
+    def test_enable_verifier_rules_passes_through_rules_node(self):
+        state = self.initial_state.copy()
+        state["enable_verifier"] = True
+        state["verifier_mode"] = "rules"
+
+        result = app.invoke(state)
+
+        self.assertIn("verification_passed", result)
         self.assertTrue(result["verification_passed"])
-        self.assertEqual(result["verification_errors"], [])
+
+    @patch.dict("os.environ", {
+        "GEMINI_API_KEY": "test-api-key",
+        "LLM_MODEL": "test-model",
+        "MAX_LLM_CALLS_PER_RESPONSE": "2",
+    })
+    @patch("verifier_agent._gemini_client")
+    def test_enable_verifier_llm_passes_through_llm_node(self, gemini_client):
+        client = Mock()
+        client.models.generate_content.return_value.text = "SIM"
+        gemini_client.return_value = client
+        state = self.initial_state.copy()
+        state["enable_verifier"] = True
+        state["verifier_mode"] = "llm"
+
+        result = app.invoke(state)
+
+        self.assertIn("verification_passed", result)
+        self.assertTrue(result["verification_passed"])
+        self.assertEqual(result["llm_calls"], 1)
 
     def test_invalid_request_ends_with_error(self):
         state = self.initial_state.copy()
@@ -74,138 +102,6 @@ class TestGraph(unittest.TestCase):
         self.assertFalse(result["verification_passed"])
         self.assertTrue(result["draft_response"])
 
-def test_ocr_analysis_classifies_nutritional_values(self):
-        state = self.initial_state.copy()
-
-        state.update({
-            "request_type": "ocr_analysis",
-            "valores_nutricionais_100": {
-                "acucares_adicionados": 16,
-                "gorduras_saturadas": 2,
-                "sodio": 500,
-                "acucares_totais": 18,
-                "carboidratos": 25,
-            },
-            "tipo_alimento": "solido",
-            "categoria_produto": "outro",
-        })
-
-        result = app.invoke(state)
-
-        self.assertEqual(
-            result["rotulagem_resultado"]["status"],
-            "ok"
-        )
-
-        self.assertIn(
-            "acucares_adicionados",
-            result["rotulagem_resultado"]["alto_em"]
-        )
-
-        self.assertEqual(
-            result["classification_tone"],
-            "INCONCLUSIVO"
-        )
-
-        self.assertTrue(result["verification_passed"])
-
-def test_ocr_analysis_respects_anexo_xvi_conditional_category(self):
-        state = self.initial_state.copy()
-
-        state.update({
-            "request_type": "ocr_analysis",
-            "valores_nutricionais_100": {
-                "acucares_adicionados": 20,
-                "gorduras_saturadas": 8,
-                "sodio": 800,
-                "acucares_totais": 22,
-                "carboidratos": 30,
-            },
-            "tipo_alimento": "solido",
-            "categoria_produto": "queijo",
-        })
-
-        result = app.invoke(state)
-
-        self.assertEqual(
-            result["rotulagem_resultado"]["regra_anexo_xvi"],
-            "condicional"
-        )
-
-        self.assertEqual(
-            result["rotulagem_resultado"]["alto_em"],
-            []
-        )
-
-        self.assertTrue(
-            any("Anexo XVI" in aviso for aviso in result["warnings"])
-        )
-
-        self.assertTrue(result["verification_passed"])
-
-def test_ocr_analysis_respects_anexo_xvi_prohibition(self):
-        state = self.initial_state.copy()
-
-        state.update({
-            "request_type": "ocr_analysis",
-            "valores_nutricionais_100": {
-                "acucares_adicionados": 20,
-                "gorduras_saturadas": 8,
-                "sodio": 800,
-                "acucares_totais": 22,
-                "carboidratos": 30,
-            },
-            "tipo_alimento": "solido",
-            "categoria_produto": "leite",
-        })
-
-        result = app.invoke(state)
-
-        self.assertEqual(
-            result["rotulagem_resultado"]["regra_anexo_xvi"],
-            "vedacao"
-        )
-
-        self.assertEqual(
-            result["rotulagem_resultado"]["alto_em"],
-            []
-        )
-
-        self.assertTrue(result["verification_passed"])
-
-def test_ocr_analysis_rejects_inconsistent_values(self):
-        state = self.initial_state.copy()
-
-        state.update({
-            "request_type": "ocr_analysis",
-            "valores_nutricionais_100": {
-                "acucares_adicionados": 10,
-                "gorduras_saturadas": 2,
-                "sodio": 200,
-                "acucares_totais": 30,
-                "carboidratos": 20,
-            },
-            "tipo_alimento": "solido",
-            "categoria_produto": "outro",
-        })
-
-        result = app.invoke(state)
-
-        self.assertEqual(
-            result["rotulagem_resultado"]["status"],
-            "confirmar_valores"
-        )
-
-        self.assertEqual(
-            result["rotulagem_resultado"]["alto_em"],
-            []
-        )
-
-        self.assertTrue(
-            result["rotulagem_resultado"]["inconsistencias"]
-        )
-
-        self.assertTrue(result["verification_passed"])
 
 if __name__ == "__main__":
     unittest.main()

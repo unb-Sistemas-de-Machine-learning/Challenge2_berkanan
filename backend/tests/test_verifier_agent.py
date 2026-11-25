@@ -1,7 +1,8 @@
 
 import unittest
+from unittest.mock import Mock, patch
 
-from verifier_agent import verifier_agent_node
+from verifier_agent import verifier_agent_llm_node, verifier_agent_node
 
 
 class TestVerifierAgent(unittest.TestCase):
@@ -124,6 +125,69 @@ class TestVerifierAgent(unittest.TestCase):
             any("identificação" in error
                 for error in result["verification_errors"])
         )
+
+    @patch.dict("os.environ", {
+        "GEMINI_API_KEY": "test-api-key",
+        "LLM_MODEL": "test-model",
+        "MAX_LLM_CALLS_PER_RESPONSE": "2",
+    })
+    @patch("verifier_agent._gemini_client")
+    def test_llm_verifier_accepts_only_exact_sim(self, gemini_client):
+        cases = [
+            ("SIM", True),
+            ("NAO", False),
+            ("SIM, mas...", False),
+            ("NÃO SIM", False),
+        ]
+        for text, passed in cases:
+            with self.subTest(text=text):
+                client = Mock()
+                client.models.generate_content.return_value.text = text
+                gemini_client.return_value = client
+                state = dict(self.state)
+                state["llm_calls"] = 0
+
+                result = verifier_agent_llm_node(state)
+
+                self.assertEqual(result["verification_passed"], passed)
+                self.assertEqual(result["llm_calls"], 1)
+
+    @patch.dict("os.environ", {
+        "GEMINI_API_KEY": "test-api-key",
+        "LLM_MODEL": "test-model",
+        "MAX_LLM_CALLS_PER_RESPONSE": "2",
+    })
+    @patch("verifier_agent._gemini_client")
+    def test_llm_verifier_exception_increments_attempt(self, gemini_client):
+        client = Mock()
+        client.models.generate_content.side_effect = RuntimeError("timeout")
+        gemini_client.return_value = client
+        state = dict(self.state)
+        state["llm_calls"] = 0
+
+        result = verifier_agent_llm_node(state)
+
+        self.assertFalse(result["verification_passed"])
+        self.assertEqual(result["llm_calls"], 1)
+        self.assertTrue(
+            any("Falha ao executar" in error for error in result["verification_errors"])
+        )
+
+    @patch.dict("os.environ", {
+        "GEMINI_API_KEY": "test-api-key",
+        "LLM_MODEL": "test-model",
+        "MAX_LLM_CALLS_PER_RESPONSE": "1",
+    })
+    @patch("verifier_agent._gemini_client")
+    def test_llm_verifier_respects_call_limit(self, gemini_client):
+        state = dict(self.state)
+        state["llm_calls"] = 1
+
+        result = verifier_agent_llm_node(state)
+
+        gemini_client.assert_not_called()
+        self.assertFalse(result["verification_passed"])
+        self.assertEqual(result["llm_calls"], 1)
 
 
 if __name__ == "__main__":

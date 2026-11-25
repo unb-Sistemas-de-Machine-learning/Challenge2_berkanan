@@ -31,7 +31,7 @@ def _get_connection_kwargs() -> dict[str, Any]:
         "dbname": POSTGRES_DB,
         "user": POSTGRES_USER,
         "password": POSTGRES_PASSWORD,
-        "connect_timeout": 3,
+        "connect_timeout": 2,
     }
 
 
