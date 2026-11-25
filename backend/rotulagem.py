@@ -21,6 +21,54 @@ logger = logging.getLogger("berkanan.rotulagem")
 NUTRIENTES_ALTO_EM = ("acucares_adicionados", "gorduras_saturadas", "sodio")
 TIPOS = ("solido", "liquido")
 FONTE = "IN 75/2020, Anexo XV"
+
+# Categorias selecionáveis pelo usuário na confirmação dos valores. Estou adicionando elas pois optei por acrescentar um agrupamento que identifica explicitamente os itens 11 a 18 do Anexo XVI.
+CATEGORIAS_PRODUTO = (
+    "queijo",
+    "leite",
+    "leite_fermentado",
+    "ovos",
+    "carne_peixe",
+    "frutas_vegetais_cereais_castanhas",
+    "farinha",
+    "oleo_azeite",
+    "sal",
+    "anexo_xvi_itens_11_18",
+    "outro",
+)
+
+# Itens 1 a 6: a aplicação da rotulagem depende da composição
+# e da análise dos ingredientes adicionados.
+CATEGORIAS_CONDICIONAIS_ANEXO_XVI = {
+    "queijo",
+    "leite_fermentado",
+    "ovos",
+    "carne_peixe",
+    "frutas_vegetais_cereais_castanhas",
+    "farinha",
+}
+
+# Itens 7 a 18: não declarar ALTO EM.
+CATEGORIAS_VEDADAS_ANEXO_XVI = {
+    "leite",
+    "oleo_azeite",
+    "sal",
+    "anexo_xvi_itens_11_18",
+}
+
+# Mensagens de retorno para o usuário quando a categoria do produto estiver em uma das listas acima.
+AVISO_ANEXO_XVI_CONDICIONAL = (
+    "A norma não permite o selo neste tipo de alimento, exceto quando "
+    "há ingredientes adicionados que alteram o nutriente; confira a "
+    "lista de ingredientes."
+)
+
+AVISO_ANEXO_XVI_VEDACAO = (
+    "Esta categoria está abrangida pelas disposições de vedação do "
+    "Anexo XVI da IN 75/2020. O sistema não declara ALTO EM para "
+    "este tipo de produto."
+)
+
 _TOLERANCIA = 1e-9  # só para erro de ponto flutuante na normalização (ex.: 6 / 30 * 100)
 
 # Nomes usados na tabela limites_rotulagem (migração 008) -> nomes deste módulo.
@@ -104,46 +152,137 @@ def classificar_alto_em(
     valores_100: dict[str, Optional[float]],
     tipo: str,
     limites: Optional[dict[tuple[str, str], Limite]] = None,
+    *,
+    categoria_produto: str = "outro",
 ) -> dict[str, Any]:
     """Classifica o produto quanto ao ALTO EM.
 
-    Retorna `status = "confirmar_valores"` (sem classificar) quando a leitura é inconsistente.
-    `alto` por nutriente: True, False ou None (valor não lido, não avaliado).
+    Retorna `status = "confirmar_valores"` (sem classificar)
+    quando a leitura é inconsistente.
+
+    Categorias abrangidas pelo Anexo XVI recebem o tratamento
+    específico definido pela norma.
+
+    `alto` por nutriente: True, False ou None
+    (valor não lido, não avaliado).
     """
+
+    # 1. Validação do tipo de alimento.
     if tipo not in TIPOS:
-        raise ValueError(f"tipo deve ser 'solido' ou 'liquido', recebido {tipo!r}.")
+        raise ValueError(
+            f"tipo deve ser 'solido' ou 'liquido', recebido {tipo!r}."
+        )
+
+    # 2. Validação dos valores nutricionais.
     for nome, valor in valores_100.items():
         if valor is not None and valor < 0:
-            raise ValueError(f"{nome} não pode ser negativo ({valor}).")
+            raise ValueError(
+                f"{nome} não pode ser negativo ({valor})."
+            )
 
+    # 3. Verificação da categoria do produto.
+    # Categorias inválidas geram ValueError.
+    # Categorias válidas podem retornar uma exceção ou None.
+    excecao_anexo_xvi = _verificar_excecao_anexo_xvi(
+        categoria_produto
+    )
+
+    # 4. Verificação de inconsistências nutricionais.
     inconsistencias = checar_consistencia(valores_100)
+
     resultado: dict[str, Any] = {
         "tipo": tipo,
         "base": "100 g" if tipo == "solido" else "100 ml",
         "fonte": FONTE,
         "inconsistencias": inconsistencias,
+        "categoria_produto": categoria_produto,
     }
-    if inconsistencias:
-        return {**resultado, "status": "confirmar_valores", "alto_em": [],
-                "nao_avaliados": list(NUTRIENTES_ALTO_EM), "avaliacao": {}}
 
+    # 5. Valores inconsistentes exigem confirmação.
+    if inconsistencias:
+        return {
+            **resultado,
+            "status": "confirmar_valores",
+            "alto_em": [],
+            "nao_avaliados": list(NUTRIENTES_ALTO_EM),
+            "avaliacao": {},
+        }
+
+    # 6. Aplicação das exceções do Anexo XVI.
+    if excecao_anexo_xvi is not None:
+        return {
+            **resultado,
+            "status": "ok",
+            "alto_em": [],
+            "nao_avaliados": list(NUTRIENTES_ALTO_EM),
+            "avaliacao": {},
+            **excecao_anexo_xvi,
+        }
+
+    # 7. Regra original do Anexo XV.
+    # Para "outro", o comportamento permanece o mesmo.
     limites = limites or carregar_limites()
+
     avaliacao = {}
+
     for nutriente in NUTRIENTES_ALTO_EM:
         limite = limites[(tipo, nutriente)]
         valor = valores_100.get(nutriente)
+
         avaliacao[nutriente] = {
             "valor": valor,
             "limite": limite.valor,
             "unidade": limite.unidade,
-            "alto": None if valor is None else valor + _TOLERANCIA >= limite.valor,
+            "alto": (
+                None
+                if valor is None
+                else valor + _TOLERANCIA >= limite.valor
+            ),
             "trecho_norma": limite.trecho,
             "origem_limite": limite.origem,
         }
+
     return {
         **resultado,
         "status": "ok",
-        "alto_em": [n for n, a in avaliacao.items() if a["alto"]],
-        "nao_avaliados": [n for n, a in avaliacao.items() if a["alto"] is None],
+        "alto_em": [
+            n for n, a in avaliacao.items() if a["alto"]
+        ],
+        "nao_avaliados": [
+            n for n, a in avaliacao.items() if a["alto"] is None
+        ],
         "avaliacao": avaliacao,
     }
+
+# Função auxiliar para implementação do Anexo XVI
+def _verificar_excecao_anexo_xvi(
+    categoria_produto: str,
+) -> Optional[dict[str, Any]]:
+    """Verifica se a categoria selecionada está abrangida pelo Anexo XVI.
+
+    Retorna informações sobre a exceção quando aplicável.
+    Retorna None quando a regra normal do Anexo XV deve ser aplicada.
+    """
+
+    # Primeiro, valida se a categoria é reconhecida.
+    if categoria_produto not in CATEGORIAS_PRODUTO:
+        raise ValueError(
+            f"categoria_produto inválida: {categoria_produto!r}."
+        )
+
+    # Verifica categorias condicionais (itens 1 a 6).
+    if categoria_produto in CATEGORIAS_CONDICIONAIS_ANEXO_XVI:
+        return {
+            "regra_anexo_xvi": "condicional",
+            "aviso": AVISO_ANEXO_XVI_CONDICIONAL,
+        }
+
+    # Verifica categorias com vedação (itens 7 a 18).
+    if categoria_produto in CATEGORIAS_VEDADAS_ANEXO_XVI:
+        return {
+            "regra_anexo_xvi": "vedacao",
+            "aviso": AVISO_ANEXO_XVI_VEDACAO,
+        }
+
+    # Categoria "outro": segue a regra normal do Anexo XV.
+    return None

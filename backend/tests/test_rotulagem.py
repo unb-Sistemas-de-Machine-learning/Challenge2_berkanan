@@ -4,14 +4,27 @@ Gabarito conferido na IN 75/2020, Anexo XV (mlops/experiments/testset/conferenci
 """
 import unittest
 
-from rotulagem import (LIMITES_RESERVA, carregar_limites, checar_consistencia, classificar_alto_em,
-                       normalizar_por_100)
+from rotulagem import (
+    LIMITES_RESERVA,
+    NUTRIENTES_ALTO_EM,
+    carregar_limites,
+    checar_consistencia,
+    classificar_alto_em,
+    normalizar_por_100,
+)
 
 L = LIMITES_RESERVA  # testes não dependem do PostgreSQL
 
 
-def alto(valores, tipo="solido"):
-    return set(classificar_alto_em(valores, tipo, L)["alto_em"])
+def alto(valores, tipo="solido", categoria_produto="outro"):
+    return set(
+        classificar_alto_em(
+            valores,
+            tipo,
+            L,
+            categoria_produto=categoria_produto,
+        )["alto_em"]
+    )
 
 
 class TestGabaritoCategoriaC(unittest.TestCase):
@@ -27,14 +40,45 @@ class TestGabaritoCategoriaC(unittest.TestCase):
     def test_c04_bebida_lactea_abaixo_dos_limites_de_liquido(self):
         self.assertEqual(alto({"acucares_adicionados": 6, "gorduras_saturadas": 1.5, "sodio": 80}, "liquido"), set())
 
-    @unittest.skip("Exceção do Anexo XVI (queijos) depende da decisão da issue #21")
     def test_c05_queijo_sem_lupa_pelo_anexo_xvi(self):
-        self.assertEqual(alto({"acucares_adicionados": 0, "gorduras_saturadas": 14, "sodio": 700}), set())
+        valores = {
+            "acucares_adicionados": 0,
+            "gorduras_saturadas": 14,
+            "sodio": 700,
+        }
+
+        resultado = classificar_alto_em(
+            valores,
+            "solido",
+            L,
+            categoria_produto="queijo",
+        )
+
+        self.assertEqual(resultado["status"], "ok")
+        self.assertEqual(resultado["regra_anexo_xvi"], "condicional")
+        self.assertEqual(resultado["alto_em"], [])
+        self.assertEqual(
+            resultado["nao_avaliados"],
+            list(NUTRIENTES_ALTO_EM)
+        )
+        self.assertIn(
+            "confira a lista de ingredientes",
+            resultado["aviso"].lower()
+        )
 
     def test_c05_valores_passam_dos_limites_antes_da_excecao(self):
         # Sem a exceção do Anexo XVI, os valores do queijo passam dos dois limites.
-        self.assertEqual(alto({"acucares_adicionados": 0, "gorduras_saturadas": 14, "sodio": 700}),
-                         {"gorduras_saturadas", "sodio"})
+        self.assertEqual(
+            alto(
+                {
+                    "acucares_adicionados": 0,
+                    "gorduras_saturadas": 14,
+                    "sodio": 700
+                },
+                categoria_produto = "outro",
+            ),
+            {"gorduras_saturadas", "sodio"},
+        )
 
     def test_c06_pao_de_forma_abaixo_dos_limites(self):
         self.assertEqual(alto({"acucares_adicionados": 5, "gorduras_saturadas": 1, "sodio": 450}), set())
@@ -49,6 +93,111 @@ class TestGabaritoCategoriaC(unittest.TestCase):
         self.assertEqual(r["status"], "confirmar_valores")
         self.assertEqual(r["alto_em"], [])
         self.assertIn("Confira os valores", r["inconsistencias"][0])
+
+    def test_categorias_condicionais_anexo_xvi(self):
+        categorias = (
+        "queijo",
+        "leite_fermentado",
+        "ovos",
+        "carne_peixe",
+        "frutas_vegetais_cereais_castanhas",
+        "farinha",
+    )
+
+        valores = {
+        "acucares_adicionados": 20,
+        "gorduras_saturadas": 10,
+        "sodio": 800,
+    }
+
+        for categoria in categorias:
+            with self.subTest(categoria=categoria):
+                resultado = classificar_alto_em(
+                    valores,
+                    "solido",
+                    L,
+                    categoria_produto=categoria,
+                )
+
+                self.assertEqual(resultado["status"], "ok")
+                self.assertEqual(
+                    resultado["regra_anexo_xvi"],
+                    "condicional"
+                )
+                self.assertEqual(resultado["alto_em"], [])
+                self.assertTrue(resultado["aviso"])
+
+    def test_categorias_com_vedacao_anexo_xvi(self):
+        categorias = (
+        "leite",
+        "oleo_azeite",
+        "sal",
+        "anexo_xvi_itens_11_18",
+    )
+
+        valores = {
+        "acucares_adicionados": 20,
+        "gorduras_saturadas": 10,
+        "sodio": 800,
+    }
+
+        for categoria in categorias:
+            with self.subTest(categoria=categoria):
+                resultado = classificar_alto_em(
+                    valores,
+                    "solido",
+                    L,
+                    categoria_produto=categoria,
+            )
+
+            self.assertEqual(resultado["status"], "ok")
+            self.assertEqual(
+                resultado["regra_anexo_xvi"],
+                "vedacao"
+            )
+            self.assertEqual(resultado["alto_em"], [])
+            self.assertTrue(resultado["aviso"])
+
+    def test_categoria_com_excecao_nao_ignora_valores_inconsistentes(self):
+        valores = {
+        "carboidratos": 10,
+        "acucares_totais": 15,
+        "acucares_adicionados": 12,
+        "gorduras_saturadas": 14,
+        "sodio": 700,
+    }
+
+        resultado = classificar_alto_em(
+        valores,
+        "solido",
+        L,
+        categoria_produto="queijo",
+    )
+
+        self.assertEqual(resultado["status"], "confirmar_valores")
+        self.assertEqual(resultado["alto_em"], [])
+        self.assertNotIn("regra_anexo_xvi", resultado)
+
+    def test_categoria_produto_invalida(self):
+        with self.assertRaises(ValueError):
+            classificar_alto_em(
+            {"sodio": 700},
+            "solido",
+            L,
+            categoria_produto="queijoo",
+        )
+
+    def test_categoria_padrao_e_outro(self):
+        valores = {
+        "acucares_adicionados": 20,
+        "gorduras_saturadas": 10,
+        "sodio": 800,
+    }
+
+        resultado = classificar_alto_em(valores, "solido", L)
+
+        self.assertEqual(resultado["categoria_produto"], "outro")
+        self.assertEqual(len(resultado["alto_em"]), 3)
 
 
 class TestGabaritoCategoriaD(unittest.TestCase):
