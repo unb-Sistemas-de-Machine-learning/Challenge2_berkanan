@@ -1,7 +1,7 @@
 # Arquitetura de Deploy, Containerização e Requisitos Mobile First
 
 > **Responsável:** Caio Soares de Andrade (**R6 — Engenheiro DevOps** / **R7 — Engenheiro MLOps**)  
-> **Última atualização:** 24/11/2026  
+> **Última atualização:** 25/11/2026  
 
 Este documento detalha a infraestrutura de containers implementada para o **Challenge 2 Berkanan**, tanto para desenvolvimento local ([compose.yaml](../../compose.yaml)) quanto para a proposta de implantação híbrida enxuta na **Microsoft Azure (`brazilsouth`)** ([ADR-009 proposto](../adr/adr_009.md)), diferenciando o que está operacional daquilo que aguarda entrega ou decisão das demais frentes.
 
@@ -33,33 +33,34 @@ flowchart LR
 
 ## 2. Topologia Híbrida Enxuta na Azure (`infra/azure/` — ADR-009 Proposto)
 
-Para viabilizar os testes em celulares reais via 4G (câmera exige HTTPS) e a avaliação com usuários (#34) com baixa complexidade operacional, a stack de staging/produção utiliza uma **VM Linux em `brazilsouth`** (`Standard_B2ms`, SSD local) combinada com **Azure Static Web Apps (`Free`)**:
+Para viabilizar os testes em celulares reais via 4G (câmera exige HTTPS) e a avaliação com usuários (#34) dentro do saldo remanescente da conta **Azure for Students** (~US$ 46), a stack de staging/produção utiliza uma **VM Linux em `brazilsouth`** (`Standard_B2als_v2` — 2 vCPU AMD EPYC, 4 GB RAM + 4 GB swap em `StandardSSD_LRS` 64 GB, com auto-shutdown diário às 23h BRT; fallback `northcentralus`), domínio gratuito dedicado **`berkanan-challenge-2.duckdns.org`** e **Azure Static Web Apps (`Free`)**:
 
 ```mermaid
 flowchart LR
     Celular["Celular 4G (Navegador Mobile)"] -->|"HTTPS :443"| SWA["Azure Static Web Apps (React/Vite - PENDENTE)"]
-    Celular -->|"HTTPS :443 (API + Upload <= 512KB)"| Caddy["Caddy 2.8.4 (TLS Let's Encrypt + CORS)"]
+    Celular -->|"HTTPS :443 (berkanan-challenge-2.duckdns.org <= 512KB)"| Caddy["Caddy 2.8.4 (TLS Let's Encrypt + CORS)"]
     SWA -.->|"CORS_ALLOWED_ORIGIN"| Caddy
-    subgraph VM Azure brazilsouth ["VM Standard_B2ms — SSD local (berkanan_internal)"]
+    subgraph VM Azure brazilsouth ["VM Standard_B2als_v2 — StandardSSD local (berkanan_internal)"]
         Caddy -->|"HTTP :8000 interno"| Backend["berkanan-backend-prod (FastAPI + LangGraph)"]
         Backend -->|"Porta 5432"| Postgres[("postgres:16.4-alpine (postgres_data)")]
         Backend -->|"Porta 8000"| Chroma[("chromadb:0.5.20 (chroma_data)")]
     end
 ```
 
-### 2.1 Por que VM + Caddy + SSD local em vez de Azure Files (SMB)?
-- O **ChromaDB 0.5.20** armazena metadados em SQLite local. Volumes SMB (Azure Files) têm problemas conhecidos de locks com SQLite sob escrita/reindexação. O disco SSD local da VM garante estabilidade para `chroma_data` e `postgres_data`.
-- O **Caddy** entrega certificados **TLS automáticos (Let's Encrypt)** para o FQDN da Azure (`*.brazilsouth.cloudapp.azure.com`), aplica limite de tamanho de requisição na borda (`CADDY_MAX_BODY_SIZE=512KB`) e controla cabeçalhos CORS.
-- As portas `5432`, `8000` e `8001` permanecem **bloqueadas** no Network Security Group (`infra/azure/provision_azure_cli.sh`).
+### 2.1 Decisões de Estabilidade, Segurança e FinOps
+- **SQLite estável em SSD local:** o **ChromaDB 0.5.20** armazena metadados em SQLite local; o disco `StandardSSD_LRS` da VM evita os problemas de lock de volumes SMB (Azure Files).
+- **Domínio dedicado gratuito (`berkanan-challenge-2.duckdns.org`):** o **Caddy** emite certificados **TLS automáticos (Let's Encrypt)** evitando o rate limit compartilhado de `*.brazilsouth.cloudapp.azure.com`, além de aplicar limite `CADDY_MAX_BODY_SIZE=512KB` e CORS.
+- **Segurança SSH estrita:** `infra/azure/provision_azure_cli.sh` **para com erro (`exit 1`)** se `ADMIN_CIDR` não for informado ou for aberto (`0.0.0.0/0`), cria a VM com `--authentication-type ssh` (`disablePasswordAuthentication: true`) e bloqueia `5432`, `8000` e `8001` no NSG.
+- **FinOps (*Azure for Students*):** estimativa total de **~US$ 7 a US$ 10** até 07/12 combinando `Standard_B2als_v2`, auto-shutdown diário (`02:00 UTC` / `23:00 BRT`), `az vm deallocate` fora de uso, Budget Alert em US$ 20 e `az group delete` pós-07/12.
 
 ### 2.2 Passo a Passo de Provisionamento e Deploy na Azure
 
-> **Guia operacional detalhado:** consulte o playbook completo em [infra/azure/PLAYBOOK.md](../../infra/azure/PLAYBOOK.md) para ajustes de `Dockerfile` após os merges de #40/#24/frontend, orçamento de RAM na VM `Standard_B2ms`, validação de DNS, backup `pg_dump` e troubleshooting.
+> **Guia operacional detalhado:** consulte o playbook completo em [infra/azure/PLAYBOOK.md](../../infra/azure/PLAYBOOK.md) para ajustes de `Dockerfile` pós-PR #40/#24, rotina FinOps (`deallocate`/Budget/teardown), configuração do DuckDNS, backup `pg_dump` e troubleshooting.
 
-1. **Provisionar infraestrutura base na Azure** (revise em `--dry-run` antes de aplicar):
+1. **Provisionar infraestrutura base na Azure** (`ADMIN_CIDR` restrito é obrigatório; revise em `--dry-run` antes de aplicar):
    ```bash
-   ADMIN_CIDR="SEU_IP_PUBLICO/32" bash infra/azure/provision_azure_cli.sh --dry-run
-   ADMIN_CIDR="SEU_IP_PUBLICO/32" bash infra/azure/provision_azure_cli.sh --apply
+   ADMIN_CIDR="$(curl -fsS https://ifconfig.me)/32" bash infra/azure/provision_azure_cli.sh --dry-run
+   ADMIN_CIDR="$(curl -fsS https://ifconfig.me)/32" bash infra/azure/provision_azure_cli.sh --apply
    ```
 2. **Na VM Azure (`brazilsouth`), preparar o ambiente:**
    - Instalar Docker Engine + Docker Compose plugin e clonar o repositório em `AZURE_DEPLOY_PATH` (ex.: `/opt/berkanan/Challenge2_berkanan`).
