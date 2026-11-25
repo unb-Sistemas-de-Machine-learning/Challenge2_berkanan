@@ -3,13 +3,18 @@
 Compara, campo a campo, os valores lidos por cada motor (Tesseract, PaddleOCR, Gemini...)
 com o gabarito digitado a partir das fotos. Formatos em testset/protocolo_fotos.md.
 
+O gabarito pode ser um arquivo ou uma pasta com um arquivo por pessoa (ex.: P04-P06.csv);
+nesse caso, cada foto_id precisa estar na faixa do nome do arquivo.
+
 Uso:
-    python -m benchmark.extraction testset/gabarito_fotos.csv results/<exp>/leituras.csv
+    python -m benchmark.extraction --validar testset/gabarito_fotos/
+    python -m benchmark.extraction testset/gabarito_fotos/ results/<exp>/leituras.csv
 """
 from __future__ import annotations
 
 import csv
 import json
+import re
 import statistics
 import sys
 import unicodedata
@@ -39,8 +44,28 @@ TOLERANCE = 0.001  # o OCR lê o número impresso: só aceita o mesmo valor
 
 def _read_csv(path: str | Path) -> list[dict]:
     text = Path(path).read_text(encoding="utf-8-sig")
+    if not text.strip():
+        return []
     delimiter = ";" if ";" in text.splitlines()[0] else ","
     return list(csv.DictReader(text.splitlines(), delimiter=delimiter))
+
+
+_FAIXA = re.compile(r"^P(\d+)-P(\d+)$", re.IGNORECASE)
+
+
+def load_gold(path: str | Path) -> list[dict]:
+    """Lê um gabarito (arquivo) ou todos os *.csv de uma pasta, um por pessoa.
+
+    Cada linha ganha `_arquivo` com o nome do arquivo de origem, para as mensagens de erro.
+    """
+    p = Path(path)
+    arquivos = sorted(p.glob("*.csv")) if p.is_dir() else [p]
+    rows = []
+    for f in arquivos:
+        for r in _read_csv(f):
+            r["_arquivo"] = f.name
+            rows.append(r)
+    return rows
 
 
 def _num(value: str | None) -> float | None:
@@ -134,19 +159,29 @@ def compare(gold_rows: list[dict], read_rows: list[dict]) -> dict:
 
 def validate_gold(rows: list[dict]) -> list[str]:
     errors = []
-    if rows:
-        missing = [c for c in GOLD_COLUMNS if c not in rows[0]]
+    por_arquivo: dict[str, dict] = {}
+    for r in rows:
+        por_arquivo.setdefault(r.get("_arquivo", "gabarito"), r)
+    for arquivo, primeira in por_arquivo.items():
+        missing = [c for c in GOLD_COLUMNS if c not in primeira]
         if missing:
-            return [f"Colunas ausentes no gabarito: {missing}"]
-    seen = set()
+            errors.append(f"{arquivo}: colunas ausentes no gabarito: {missing}")
+    if errors:
+        return errors
+    seen: dict[str, str] = {}
     for r in rows:
         pid = (r.get("foto_id") or "").strip()
+        arquivo = r.get("_arquivo", "gabarito")
         if not pid:
-            errors.append("foto_id vazio.")
+            errors.append(f"{arquivo}: foto_id vazio.")
             continue
         if pid in seen:
-            errors.append(f"{pid}: foto_id duplicado.")
-        seen.add(pid)
+            errors.append(f"{pid}: foto_id duplicado ({seen[pid]} e {arquivo}).")
+        seen[pid] = arquivo
+        faixa = _FAIXA.match(Path(arquivo).stem)
+        produto = re.match(r"^P(\d+)_", pid, re.IGNORECASE)
+        if faixa and (not produto or not int(faixa[1]) <= int(produto[1]) <= int(faixa[2])):
+            errors.append(f"{pid}: fora da faixa do arquivo {arquivo} (use P{faixa[1]} a P{faixa[2]} e o formato P04_boa).")
         if (r.get("tipo") or "").strip().lower() not in {"solido", "liquido"}:
             errors.append(f"{pid}: tipo deve ser 'solido' ou 'liquido'.")
         try:
@@ -160,10 +195,17 @@ def validate_gold(rows: list[dict]) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[1] == "--validar":
+        gold = load_gold(argv[2])
+        problems = validate_gold(gold)
+        print("\n".join(f"[ERRO] {p}" for p in problems) if problems else
+              f"[OK] {len(gold)} foto(s) em {len({r['_arquivo'] for r in gold})} arquivo(s), sem erros.")
+        return 1 if problems else 0
     if len(argv) < 3:
-        print("Uso: python -m benchmark.extraction <gabarito_fotos.csv> <leituras.csv>")
+        print("Uso: python -m benchmark.extraction --validar <gabarito.csv|pasta>\n"
+              "     python -m benchmark.extraction <gabarito.csv|pasta> <leituras.csv>")
         return 2
-    gold = _read_csv(argv[1])
+    gold = load_gold(argv[1])
     problems = validate_gold(gold)
     if problems:
         print("\n".join(f"[ERRO] {p}" for p in problems))
