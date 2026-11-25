@@ -1,6 +1,15 @@
 # Versionamento de Prompts — Challenge 2 Berkanan
 
-> **Status atual (14/11/2026):** Estrutura e convenção de versionamento preparadas. Os prompts de negócio e verificação devem ser adicionados pelos responsáveis pelos respectivos agentes (**R2 — João Victor**, **R3 — Gustavo** e **R5 — Carlos**) e rastreados no manifesto de execução (**R7 — Caio**).
+> **Status atual (25/11/2026):** Os prompts ativos implementados no backend (`nutritional_agent` e `verifier_agent_llm`) foram extraídos e versionados como `v1.0` neste diretório, rastreados por [mlops/manifests/runtime-manifest.yaml](../manifests/runtime-manifest.yaml) (**R7 — Caio**). Demais agentes aguardam implementação LLM ou decisão em aberto (**R2 — João Victor**, **R3 — Gustavo** e **R5 — Carlos**).
+
+## Índice de Prompts Versionados
+
+| Agente | Arquivo / Versão | Status | Origem no Código / Observação |
+|---|---|---|---|
+| Agente Nutricional (`nutritional_agent`) | [nutritional_agent_v1.0.yaml](nutritional_agent_v1.0.yaml) | `EM_BENCHMARK` | `backend/nutritional_agent.py#L307-L327` |
+| Verificador Semântico Config. C (`verifier_agent_llm`) | [verifier_agent_llm_v1.0.yaml](verifier_agent_llm_v1.0.yaml) | `EM_BENCHMARK` | `backend/verifier_agent.py#L218-L227` (sujeito à #16 / ADR-005) |
+| Agente de Comparação (`comparison_agent`) | — | `DETERMINISTICO` | Executado por regras em `backend/comparison_agent.py`, sem chamada LLM |
+| Extrator Multimodal de Reserva (`ocr_vision_fallback`) | — | `PENDENTE` | Aguardando fechamento do benchmark OCR (`#24`) |
 
 ---
 
