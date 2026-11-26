@@ -8,7 +8,8 @@ Uso:
         --api http://127.0.0.1:8000
 
 Saída em results/<experiment_id>/:
-    run.json         metadados (commit, manifesto, configs, aviso de mock)
+    run.json         metadados (commit, manifesto, versões dos prompts, modelo, configs,
+                     e motivo quando o resultado não vale como oficial)
     respostas.jsonl  uma linha por chamada, com a resposta completa da API
     correcao.csv     planilha para corrigir (correct, claims_total, claims_supported, refused)
 """
@@ -17,6 +18,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import subprocess
 import sys
 import time
@@ -29,6 +31,7 @@ from benchmark import testset
 
 ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = ROOT / "mlops" / "manifests" / "runtime-manifest.yaml"
+PROMPTS_DIR = ROOT / "mlops" / "prompts"
 
 # Como cada configuração é pedida à API. `verifier_mode` ainda não existe no contrato
 # (backend/schemas.py ignora campos extras): proposta para R2/R5 distinguirem B de C.
@@ -64,6 +67,42 @@ def manifest_status() -> str:
         if line.strip().startswith("status:"):
             return line.split(":", 1)[1].strip().strip('"')
     return "desconhecido"
+
+
+def prompt_versions(prompts_dir: Path = PROMPTS_DIR) -> dict[str, dict[str, str]]:
+    """Lê `prompt_id`, `version` e `status` de cada mlops/prompts/*.yaml (sem depender de PyYAML)."""
+    versions: dict[str, dict[str, str]] = {}
+    for path in sorted(prompts_dir.glob("*.yaml")):
+        fields: dict[str, str] = {"arquivo": path.name}
+        for line in path.read_text(encoding="utf-8").splitlines():
+            key, sep, value = line.partition(":")
+            if sep and key in ("prompt_id", "version", "status"):
+                fields[key] = value.strip().strip('"')
+        versions[fields.get("prompt_id", path.stem)] = fields
+    return versions
+
+
+def expected_min_llm_calls(request_type: str, config: str) -> int:
+    """Mínimo de chamadas ao LLM que uma resposta real deve ter (ADR-004/005).
+
+    Comparação é por código (0); as demais perguntas chamam o agente nutricional (1);
+    a config. C soma a chamada do verificador com LLM (+1).
+    """
+    base = 0 if request_type == "comparison" else 1
+    return base + (1 if config == "C" else 0)
+
+
+def count_missing_llm(records: list[dict]) -> int:
+    """Respostas que vieram com menos chamadas ao LLM do que o esperado (ex.: chave ausente)."""
+    missing = 0
+    for rec in records:
+        resp = rec.get("response")
+        if rec.get("error") or not resp or "llm_calls" not in resp:
+            continue
+        expected = expected_min_llm_calls(rec["payload"]["request_type"], rec["config"])
+        if int(resp["llm_calls"]) < expected:
+            missing += 1
+    return missing
 
 
 def build_payload(q: testset.Question, config: str) -> dict:
@@ -139,6 +178,9 @@ def run(args: argparse.Namespace) -> Path:
         "manifest_status": status,
         "official": not is_mock,
         "api": args.api,
+        # O modelo é configurado no servidor: quem roda informa o mesmo LLM_MODEL do .env da API.
+        "llm_model": args.llm_model,
+        "prompts": prompt_versions(),
         "configs": {c: CONFIG_PAYLOADS[c] for c in args.configs},
         "reps": args.reps,
         "testset": str(args.testset),
@@ -149,16 +191,19 @@ def run(args: argparse.Namespace) -> Path:
         print(f"[AVISO] {meta['warning']}")
 
     rows = []
+    records = []
     with (out / "respostas.jsonl").open("w", encoding="utf-8") as raw:
         for config in args.configs:
             for rep in range(1, args.reps + 1):
                 for q in questions:
                     payload = build_payload(q, config)
                     resp, latency_ms, error = call_api(args.api, payload, args.timeout)
-                    raw.write(json.dumps({
+                    record = {
                         "config": config, "rep": rep, "question_id": q.id, "payload": payload,
                         "latency_ms": latency_ms, "error": error, "response": resp,
-                    }, ensure_ascii=False) + "\n")
+                    }
+                    records.append(record)
+                    raw.write(json.dumps(record, ensure_ascii=False) + "\n")
                     rows.append(grading_row(q, config, rep, resp, latency_ms, error))
                 print(f"[OK] config {config}, repetição {rep}: {len(questions)} perguntas")
 
@@ -169,6 +214,23 @@ def run(args: argparse.Namespace) -> Path:
 
     meta["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
     meta["n_errors"] = sum(1 for r in rows if r["observacao"].startswith("ERRO"))
+    meta["n_sem_llm"] = count_missing_llm(records)
+    motivos = []
+    if is_mock:
+        motivos.append("backend em modo mock")
+    if meta["n_sem_llm"]:
+        motivos.append(
+            f"{meta['n_sem_llm']} respostas com menos chamadas ao LLM do que o esperado "
+            "(chave do Gemini ou LLM_MODEL ausentes no servidor?)"
+        )
+    if not meta["prompts"]:
+        motivos.append("prompts sem versão registrada em mlops/prompts/")
+    if args.llm_model == "nao_informado":
+        motivos.append("LLM_MODEL não informado")
+    if motivos:
+        meta["official"] = False
+        meta["motivos_nao_oficial"] = motivos
+        print("[AVISO] Resultado NÃO oficial: " + "; ".join(motivos))
     (out / "run.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[OK] Resultados em {out}")
     return out
@@ -184,6 +246,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
     p.add_argument("--experiment-id")
     p.add_argument("--limit", type=int, help="Só as N primeiras perguntas (teste rápido)")
+    p.add_argument(
+        "--llm-model", default=os.getenv("LLM_MODEL", "nao_informado"),
+        help="Modelo configurado na API (padrão: variável LLM_MODEL do ambiente)",
+    )
     return p.parse_args(argv)
 
 
