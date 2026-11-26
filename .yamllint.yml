@@ -1,0 +1,33 @@
+extends: default
+
+ignore: |
+  snapshots/
+  docs/context/sources/
+  node_modules/
+  .venv/
+  .local/
+
+rules:
+  # Arquivos do GitHub Actions, Docker Compose e manifestos MLOps não exigem "---" no topo.
+  document-start: disable
+
+  # Descrições em prompts/manifestos MLOps e comandos em workflows frequentemente excedem 80–160 colunas.
+  line-length: disable
+
+  # Permite a chave `on:` usada nos workflows do GitHub Actions.
+  truthy:
+    allowed-values:
+      - "true"
+      - "false"
+      - "on"
+      - "off"
+
+  # Permite comentários inline com 1 espaço (ex.: pins SHA de actions `# v4.2.2`) e referências `#NN`.
+  comments:
+    min-spaces-from-content: 1
+    require-starting-space: false
+
+  # Mantém indentação consistente de 2 espaços alinhada ao .editorconfig.
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
