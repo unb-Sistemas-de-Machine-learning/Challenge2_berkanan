@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   backend-and-baseline:
-    name: Validar Baseline, Testes e Smoke Tests (Python)
+    name: Validar Baseline, Sintaxe e Smoke Tests (Python)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
