@@ -1,0 +1,126 @@
+name: Export Metrics Azure — Challenge 2 Berkanan
+
+# FinOps / ADR-008: acionamento EXCLUSIVAMENTE manual (workflow_dispatch).
+# NUNCA adicionar gatilho automático/agendado para não falhar nem gerar custo
+# contra a VM Azure desalocada fora das janelas de teste/validação.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente de origem na Azure"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+      retention_days:
+        description: "Dias de retenção do artefato no GitHub Actions (1 a 90)"
+        required: true
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: export-metrics-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  export-azure-metrics:
+    name: Exportar Métricas SQL da VM Azure (LGPD-safe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: azure-${{ inputs.environment }}
+    steps:
+      - name: Verificar configuração dos secrets e parâmetros
+        env:
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+          AZURE_VM_USER: ${{ secrets.AZURE_VM_USER }}
+          AZURE_VM_SSH_KEY: ${{ secrets.AZURE_VM_SSH_KEY }}
+          AZURE_DEPLOY_PATH: ${{ secrets.AZURE_DEPLOY_PATH }}
+          TARGET_ENV: ${{ inputs.environment }}
+          RETENTION_DAYS: ${{ inputs.retention_days }}
+        run: |
+          for var in AZURE_VM_HOST AZURE_VM_USER AZURE_VM_SSH_KEY AZURE_DEPLOY_PATH; do
+            if [ -z "${!var}" ]; then
+              echo "[ERRO] Secret obrigatório ausente no Environment azure-${TARGET_ENV}: ${var}" >&2
+              exit 1
+            fi
+          done
+          if ! [[ "${RETENTION_DAYS}" =~ ^[0-9]+$ ]] || [ "${RETENTION_DAYS}" -lt 1 ] || [ "${RETENTION_DAYS}" -gt 90 ]; then
+            echo "[ERRO] retention_days deve ser um inteiro entre 1 e 90 (recebido: ${RETENTION_DAYS})." >&2
+            exit 1
+          fi
+
+      - name: Configurar chave SSH efêmera
+        env:
+          AZURE_VM_SSH_KEY: ${{ secrets.AZURE_VM_SSH_KEY }}
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${AZURE_VM_SSH_KEY}" > ~/.ssh/azure_export_key
+          chmod 600 ~/.ssh/azure_export_key
+          ssh-keyscan -H "${AZURE_VM_HOST}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Executar exportação LGPD-safe na VM Azure
+        env:
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+          AZURE_VM_USER: ${{ secrets.AZURE_VM_USER }}
+          AZURE_DEPLOY_PATH: ${{ secrets.AZURE_DEPLOY_PATH }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ssh -i ~/.ssh/azure_export_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+            "${AZURE_VM_USER}@${AZURE_VM_HOST}" \
+            "DEPLOY_PATH='${AZURE_DEPLOY_PATH}' RUN_ID='${RUN_ID}' bash -s" <<'REMOTE_EOF'
+          set -euo pipefail
+          bash "${DEPLOY_PATH}/infra/azure/export_metrics.sh" "/tmp/berkanan-export-${RUN_ID}"
+          REMOTE_EOF
+
+      - name: Copiar arquivos exportados via SCP e validar conteúdo
+        env:
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+          AZURE_VM_USER: ${{ secrets.AZURE_VM_USER }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          install -d -m 700 berkanan-metrics-export
+          scp -i ~/.ssh/azure_export_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+            "${AZURE_VM_USER}@${AZURE_VM_HOST}:/tmp/berkanan-export-${RUN_ID}/*" \
+            berkanan-metrics-export/
+          for expected in \
+            vw_metricas_agregadas_diarias.csv \
+            vw_checagem_limiares_monitoramento.csv \
+            metricas_requisicao.sql \
+            export_metadata.txt; do
+            if [ ! -f "berkanan-metrics-export/${expected}" ]; then
+              echo "[ERRO] Arquivo esperado ausente após scp: ${expected}" >&2
+              exit 1
+            fi
+          done
+          ls -lh berkanan-metrics-export/
+          cat berkanan-metrics-export/export_metadata.txt
+
+      - name: Publicar artefato de métricas no GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: berkanan-metrics-${{ inputs.environment }}-${{ github.run_id }}
+          path: berkanan-metrics-export/
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: error
+
+      - name: Limpar diretório temporário na VM Azure
+        if: always()
+        env:
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+          AZURE_VM_USER: ${{ secrets.AZURE_VM_USER }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if [ -f ~/.ssh/azure_export_key ] && [ -n "${AZURE_VM_HOST}" ] && [ -n "${AZURE_VM_USER}" ]; then
+            ssh -i ~/.ssh/azure_export_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+              "${AZURE_VM_USER}@${AZURE_VM_HOST}" \
+              "rm -rf '/tmp/berkanan-export-${RUN_ID}'" || true
+          fi
+
+      - name: Remover chave SSH efêmera
+        if: always()
+        run: rm -f ~/.ssh/azure_export_key
