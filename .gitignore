@@ -13,6 +13,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+reports/
 
 # Variáveis de ambiente e segredos (nunca versionar)
 .local/
