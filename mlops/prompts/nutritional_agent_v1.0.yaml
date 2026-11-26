@@ -1,0 +1,35 @@
+prompt_id: "nutritional_agent"
+version: "v1.0"
+status: "EM_BENCHMARK"
+owner_role: "R5"
+created_at: "2026-11-25"
+source_code_ref: "backend/nutritional_agent.py#L307-L327"
+compatible_models:
+  - "gemini-*"
+system_constraints_enforced:
+  - "Proibido calcular ou inventar numeros nutricionais (usar apenas valores vindos do PostgreSQL/rotulo confirmado)"
+  - "Classificacao deterministica (SAUDAVEL, ATENCAO, EVITAR ou INCONCLUSIVO) calculada por codigo antes da chamada LLM"
+  - "Citacao obrigatoria dos trechos recuperados do ChromaDB (base_conhecimento_v2)"
+  - "Responder 'nao ha evidencia suficiente' quando a base nao cobrir a pergunta"
+  - "Nunca afirmar que o produto e livre de alergenicos; exigir conferencia na embalagem"
+  - "Incluir aviso fixo de que nao substitui orientacao medica ou nutricional"
+template: |
+  Contexto oficial recuperado:
+  {contexto}
+
+  Dados confirmados do produto:
+  {json.dumps(dados_produto, ensure_ascii=False)}
+
+  Classificação determinística já calculada por código:
+  {json.dumps(classificacao_deterministica, ensure_ascii=False)}
+
+  Perfil do usuário:
+  Diabético: {bool((state.get("user_profile") or {}).get("has_diabetes"))}
+  Hipertenso: {bool((state.get("user_profile") or {}).get("has_hypertension"))}
+
+  Gere uma explicação somente baseada no contexto oficial e nos dados confirmados.
+  Não calcule nem invente valores nutricionais.
+  Responda apenas JSON válido com:
+  - draft_response: explicação clara
+  - classification_tone: SAUDAVEL, ATENCAO ou EVITAR
+  - warnings: lista de avisos

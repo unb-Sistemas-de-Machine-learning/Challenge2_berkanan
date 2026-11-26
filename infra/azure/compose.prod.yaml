@@ -1,0 +1,146 @@
+name: challenge2-berkanan-prod
+
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    container_name: berkanan-caddy
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
+      CADDY_MAX_BODY_SIZE: ${CADDY_MAX_BODY_SIZE:-512KB}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - berkanan_internal
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    image: berkanan/challenge2-backend:prod
+    container_name: berkanan-backend-prod
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-staging}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-berkanan_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-berkanan_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      CHROMA_COLLECTION: ${CHROMA_COLLECTION:-base_conhecimento_v2}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      LLM_MODEL: ${LLM_MODEL:-not_configured}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-not_configured}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      FALLBACK_BASE_URL: ${FALLBACK_BASE_URL:-}
+      FALLBACK_API_KEY: ${FALLBACK_API_KEY:-}
+      ENABLE_VERIFIER_DEFAULT: ${ENABLE_VERIFIER_DEFAULT:-true}
+      MAX_LLM_CALLS_PER_RESPONSE: ${MAX_LLM_CALLS_PER_RESPONSE:-2}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-307200}
+      OCR_ENGINE: ${OCR_ENGINE:-not_configured}
+      RAG_WARMUP_TIMEOUT_SECONDS: ${RAG_WARMUP_TIMEOUT_SECONDS:-20}
+    expose:
+      - "8000"
+    volumes:
+      - model_cache:/home/appuser/.cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=3)"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - berkanan_internal
+
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: berkanan-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-berkanan_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-berkanan_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-berkanan_user} -d $${POSTGRES_DB:-berkanan_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - berkanan_internal
+
+  chromadb:
+    image: chromadb/chroma:0.5.20
+    container_name: berkanan-chromadb-prod
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8000'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - berkanan_internal
+
+networks:
+  berkanan_internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  chroma_data:
+  model_cache:
+  caddy_data:
+  caddy_config:

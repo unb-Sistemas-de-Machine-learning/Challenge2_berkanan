@@ -1,0 +1,39 @@
+{$API_DOMAIN} {
+	encode gzip
+
+	# Proteção Mobile First (ADR-002): bloqueia payloads brutos excessivos na borda
+	request_body {
+		max_size {$CADDY_MAX_BODY_SIZE:512KB}
+	}
+
+	# Cabeçalhos de segurança HTTP e privacidade
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Preflight CORS para o frontend Mobile First (Azure Static Web Apps)
+	@cors_preflight method OPTIONS
+	handle @cors_preflight {
+		header Access-Control-Allow-Origin "{$CORS_ALLOWED_ORIGIN}"
+		header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization"
+		header Access-Control-Max-Age "86400"
+		respond "" 204
+	}
+
+	# Proxy reverso para FastAPI (sem log de corpo/image_base64 por LGPD)
+	handle {
+		header Access-Control-Allow-Origin "{$CORS_ALLOWED_ORIGIN}"
+		header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization"
+		reverse_proxy backend:8000 {
+			header_down -Access-Control-Allow-Origin
+			header_down -Access-Control-Allow-Methods
+			header_down -Access-Control-Allow-Headers
+		}
+	}
+}
