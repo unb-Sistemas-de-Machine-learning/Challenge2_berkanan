@@ -2,13 +2,27 @@ schema_version: "1.0"
 manifest_type: "mlops_runtime_configuration"
 project: "Challenge 2 Berkanan"
 maintained_by: "Equipe Berkanan (R1 a R7 — Governança MLOps R7)"
+last_updated: "2026-11-25"
 
 configuration:
-  config_id: "cfg-baseline-whatsapp-v0.1.0"
-  environment: "development"
-  status: "SKELETON_MOCK_MODE"
+  config_id: "cfg-main-staging-ready-2026-11-25"
+  environment: "development / azure-staging"
+  status: "PARTIAL_INTEGRATION_STAGING_READY"
   code_baseline_id: "backend-whatsapp-v0.1.0"
-  code_git_commit: "28a8fa27516b77de81a5585f8aed4f0397f5a888"
+  code_git_commit: "9af6402d4c2d592e58a374a634939e928f6842cf"
+  implemented_in_main:
+    - "backend/coordinator.py (roteamento deterministico por regras)"
+    - "backend/nutritional_agent.py (agente nutricional com Gemini + RAG + IN 75/TACO)"
+    - "backend/comparison_agent.py (comparacao deterministica)"
+    - "backend/verifier_agent.py (verificador por regras Config. B e por LLM Config. C)"
+    - "backend/rotulagem.py (calculo deterministico ALTO EM IN 75/2020 + excecoes do Anexo XVI via PR #45)"
+    - "backend/ocr_extraction.py (OCR pytesseract + regex RDC 429, alergenicos e consistencia)"
+    - "backend/main.py e backend/schemas.py (verifier_mode, llm_calls reais e aquecimento RAG assincrono)"
+    - "backend/database.py e backend/chroma_client.py (PostgreSQL + ChromaDB sem regras viciadas)"
+    - "migrations/001 a 011 + scripts/ingest_chroma.py (base_conhecimento_v2)"
+    - "mlops/experiments/ (conjunto_validacao.csv, gabarito_fotos/ por pessoa e comparar_llm.py)"
+  pending_or_in_pr:
+    - "frontend/: aplicacao web Mobile First React + Vite + Tailwind (R5)"
 
 execution_trace:
   experiment_id: "not_configured"
@@ -17,10 +31,10 @@ execution_trace:
 
 llm:
   primary_provider: "gemini"
-  primary_model_name: "not_configured"
+  primary_model_name: "not_configured (aguardando fechamento do benchmark #17/#22)"
   primary_model_version: "not_configured"
   fallback_provider: "not_configured"
-  fallback_model_name: "not_configured"
+  fallback_model_name: "not_configured (ferramenta de comparacao no PR #44 / issue #22)"
   vision_fallback_enabled: false
   max_llm_calls_per_response: 2
   inference_parameters:
@@ -32,9 +46,9 @@ llm:
 prompts:
   registry_path: "mlops/prompts/"
   coordinator_routing: "deterministic_rules_only (no_llm_prompt)"
-  nutritional_agent_prompt_version: "not_configured (atualmente resposta simulada em backend/graph.py)"
-  comparison_agent_prompt_version: "not_configured"
-  verifier_agent_prompt_version: "not_configured"
+  nutritional_agent_prompt_version: "inline_in_nutritional_agent_py (pendente de extracao para mlops/prompts/)"
+  comparison_agent_prompt_version: "deterministic_rules_only (no_llm_prompt)"
+  verifier_agent_prompt_version: "inline_in_verifier_agent_py (Config. C — pendente de extracao para mlops/prompts/)"
 
 knowledge_base_rag:
   vector_store: "chromadb"
@@ -44,7 +58,7 @@ knowledge_base_rag:
   embedding_model_name: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
   chunking_parameters:
     chunk_size_chars: 500
-    chunk_overlap_chars: 100
+    chunk_overlap_chars: 150
   required_chunk_metadata:
     - "documento"
     - "fonte_id"
@@ -64,8 +78,8 @@ structured_database:
     - "metricas_requisicao"
 
 ocr_pipeline:
-  preprocessing: "opencv (pendente de implementacao)"
-  ocr_tool: "not_configured (pendente de benchmark Semana 4: tesseract vs paddleocr)"
+  preprocessing: "opencv / pillow (em integracao no PR #40 e benchmark #18/#24)"
+  ocr_tool: "not_configured (pendente de benchmark Semana 4: tesseract vs paddleocr — issue #24)"
   ocr_tool_version: "not_configured"
   client_compression_target:
     max_side_px: 1280
@@ -75,8 +89,9 @@ ocr_pipeline:
 
 verifier:
   configurable_flag: "enable_verifier"
+  mode_flag: "verifier_mode (rules | llm — implementado na main / issue #13)"
   default_enabled: true
-  current_implementation_state: "mock_boolean_sources_check"
+  current_implementation_state: "rules_config_B_and_llm_config_C_implemented_in_main"
   benchmark_configurations:
     config_A: "Sem verificador (enable_verifier=false)"
     config_B: "Verificacao deterministica por regras em codigo (sem chamada adicional ao LLM)"
@@ -84,10 +99,11 @@ verifier:
   adoption_rule_for_config_C:
     min_fidelity_gain_percentage_points_over_B: 5.0
     max_additional_latency_seconds_over_B: 3.0
-  selected_production_config: "not_configured (aguardando benchmark Semana 3)"
+  selected_production_config: "not_configured (aguardando benchmark #16)"
 
 monitoring:
   backend_storage: "postgresql (tabela metricas_requisicao + logs de aplicacao)"
+  schema_contract_status: "CONFIRMADO por R6/R7 na issue #7 (migrations/004_metricas.sql + backend/database.py)"
   prometheus_enabled: false
   grafana_status: "optional_week_5_not_configured"
   quality_thresholds:
@@ -97,3 +113,16 @@ monitoring:
     min_out_of_scope_refusal_pct: 90.0
     max_median_latency_4g_seconds: 10.0
     max_avg_llm_calls_per_response: 2.0
+
+deployment:
+  adr_reference: "docs/adr/adr_009.md (PROPOSTO para validacao de R2/R3)"
+  cloud_provider: "azure"
+  subscription_type: "azure_for_students"
+  region: "brazilsouth"
+  vm_sku: "Standard_B2als_v2 (2 vCPU AMD EPYC, 4 GB RAM + 4 GB swap, StandardSSD_LRS 64 GB, auto-shutdown 02:00 UTC)"
+  topology: "hybrid_vm_docker_compose_caddy_plus_static_web_apps"
+  backend_compose_file: "infra/azure/compose.prod.yaml"
+  api_domain: "berkanan-challenge-2.duckdns.org"
+  tls_termination: "caddy (Let's Encrypt HTTPS automatico na porta 443)"
+  frontend_hosting: "Azure Static Web Apps (Free) — PENDENTE de entrega de frontend/ por R5"
+  cd_workflow: ".github/workflows/deploy-azure.yml (workflow_dispatch com rollback automatico)"

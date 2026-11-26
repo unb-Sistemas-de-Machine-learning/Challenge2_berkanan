@@ -1,0 +1,16 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/*.{css,js,json,ico,png,svg,webp,woff2}"]
+  },
+  "globalHeaders": {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer"
+  },
+  "mimeTypes": {
+    ".json": "application/json",
+    ".webp": "image/webp"
+  }
+}
