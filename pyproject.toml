@@ -1,0 +1,36 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = [
+  "snapshots",
+  "docs/context/sources",
+  ".venv",
+  ".local",
+  "reports",
+]
+
+[tool.ruff.lint]
+# Regras pragmáticas para capturar bugs reais, imports quebrados e erros de estilo (E/W/F/B)
+# sem quebrar o baseline imutável nem exigir reescrita de módulos de outros papéis (R2–R5).
+select = ["E", "F", "W", "B"]
+
+ignore = [
+  # Consultas SQL, trechos normativos da ANVISA/IN 75, mensagens PT-BR e hashes SHA-256
+  # frequentemente ultrapassam 120 caracteres; priorizamos legibilidade sem quebras artificiais.
+  "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Convenções pré-existentes em suítes de testes (ex.: `l` para "linha"/"limite", lambdas e imports inline).
+"**/tests/*.py" = ["E741"]
+"mlops/experiments/tests/*.py" = ["E401", "E731", "E741"]
+
+# Scripts que ajustam `sys.path` antes de importar módulos locais do backend.
+"scripts/verify_db_integration.py" = ["E402", "F401"]
+
+# Ocorrências pré-existentes na main em módulos mantidos por R2/R4/R5 (evita conflitos de merge;
+# remover conforme cada arquivo for evoluído em sua respectiva issue).
+"backend/database.py" = ["F401"]
+"backend/main.py" = ["F401"]
+"backend/graph.py" = ["W292"]
+"backend/rotulagem.py" = ["W292"]
