@@ -1,0 +1,48 @@
+# EditorConfig — Challenge 2 Berkanan (UnB)
+# Alinhado a .gitattributes para padronizar UTF-8, LF e indentação entre ambientes.
+# Documentação: https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml,json,md}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.sh]
+indent_size = 2
+
+# Artefatos imutáveis validados por SHA-256 (scripts/verify_baseline.py):
+# nunca reformatar automaticamente pelo editor.
+[snapshots/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset
+
+[docs/context/sources/**]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset
+
+[backend/test_api.sh]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset
