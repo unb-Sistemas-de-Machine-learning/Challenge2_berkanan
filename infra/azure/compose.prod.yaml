@@ -31,7 +31,7 @@ services:
     build:
       context: ../../backend
       dockerfile: Dockerfile
-    image: berkanan/challenge2-backend:prod
+    image: ${BACKEND_IMAGE:-ghcr.io/unb-sistemas-de-machine-learning/challenge2-backend:prod}
     container_name: berkanan-backend-prod
     restart: unless-stopped
     environment:
