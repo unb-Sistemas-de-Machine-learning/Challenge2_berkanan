@@ -169,7 +169,15 @@ def nutritional_agent_node(state: AgentState) -> dict:
 
     llm_calls = state.get("llm_calls", 0)
     tipo_alimento = dados_produto.get("tipo_alimento")
-    if tipo_alimento not in {"liquido", "solido"}:
+    has_product_data = tipo_alimento is not None or any(
+        isinstance(value, (int, float)) and not isinstance(value, bool)
+        for value in dados_produto.values()
+    )
+    is_qa_without_product = (
+        state.get("request_type") == "qa"
+        and not has_product_data
+    )
+    if tipo_alimento not in {"liquido", "solido"} and not is_qa_without_product:
         return {
             "draft_response": (
                 "Não há evidência suficiente para concluir a análise sem a "
@@ -245,7 +253,7 @@ def nutritional_agent_node(state: AgentState) -> dict:
 
     contem = dados_produto.get("alergicos_contem")
     pode_conter = dados_produto.get("alergicos_pode_conter")
-    if contem is None and pode_conter is None:
+    if has_product_data and contem is None and pode_conter is None:
         warnings.append(
             "Não foi possível ler a linha ALÉRGICOS; confira a embalagem."
         )
