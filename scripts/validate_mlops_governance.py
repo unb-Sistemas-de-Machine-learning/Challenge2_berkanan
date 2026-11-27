@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import os
 import re
 import subprocess
 import sys
@@ -34,6 +35,13 @@ PROMPT_FILENAME_RE = re.compile(r"^[a-z0-9_]+_v\d+\.\d+\.yaml$")
 VERSIONED_PROMPT_PATH_RE = re.compile(r"^mlops/prompts/[^/]+_v[^/]+\.yaml$")
 
 VALID_PROMPT_STATUSES = frozenset({"PROPOSTO", "EM_BENCHMARK", "APROVADO", "OBSOLETO"})
+
+FROZEN_TESTSET_PATHS = frozenset(
+    {
+        "mlops/experiments/testset/conjunto_de_teste.csv",
+        "mlops/experiments/testset/recall_gabarito.csv",
+    }
+)
 
 REQUIRED_PROMPT_KEYS = (
     "prompt_id",
@@ -382,11 +390,52 @@ def validate_gold_datasets(repo_root: Path) -> tuple[list[str], str]:
     return [], output or f"{len(csv_files)} arquivo(s) CSV validado(s) sem erros."
 
 
+def check_frozen_testset_from_diff(diff_output: str) -> list[str]:
+    """Identifica alterações em arquivos do conjunto de teste congelado (#23/#54)."""
+    touched: list[str] = []
+    for raw_line in diff_output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        status_kind = parts[0].strip()[:1].upper()
+        candidates = parts[1:3] if status_kind == "R" else parts[1:2]
+        for candidate in candidates:
+            normalized = candidate.strip().replace("\\", "/")
+            if normalized in FROZEN_TESTSET_PATHS and normalized not in touched:
+                touched.append(normalized)
+    return touched
+
+
+def validate_frozen_testset(repo_root: Path, base_ref: str) -> tuple[list[str], list[str]]:
+    """Verifica modificações no conjunto de teste congelado contra `base_ref`."""
+    cmd = ["git", "diff", "--name-status", f"{base_ref}...HEAD", "--", "mlops/experiments/testset/"]
+    proc = subprocess.run(
+        cmd,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        return (
+            [],
+            [
+                f"Falha ao executar `{' '.join(cmd)}` (exit={proc.returncode}): {detail}. "
+                "Verifique se o ref base existe e se o checkout possui histórico completo."
+            ],
+        )
+    return check_frozen_testset_from_diff(proc.stdout), []
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Valida governança MLOps (schemas de prompts, imutabilidade ADR-006, "
-            "runtime-manifest.yaml e gabaritos CSV)."
+            "conjunto de teste congelado, runtime-manifest.yaml e gabaritos CSV)."
         )
     )
     parser.add_argument(
@@ -401,7 +450,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Referência git base (ex.: origin/main) para verificar imutabilidade de prompts "
-            "versionados via `git diff --name-status <base-ref>...HEAD -- mlops/prompts/`."
+            "versionados e alterações no conjunto de teste congelado."
         ),
     )
     parser.add_argument(
@@ -409,6 +458,12 @@ def build_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Executa validação estrutural dos CSVs em mlops/experiments/testset/gabarito_fotos/.",
+    )
+    parser.add_argument(
+        "--strict-frozen-testset",
+        action="store_true",
+        default=False,
+        help="Falha caso algum arquivo do conjunto de teste congelado tenha sido alterado.",
     )
     return parser
 
@@ -474,6 +529,31 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("\n=== 4. Validação de gabaritos CSV ===")
         print("  [INFO] --no-check-gold informado; validação de gabaritos ignorada.")
+
+    if args.base_ref:
+        print(f"\n=== 5. Verificando conjunto de teste congelado contra '{args.base_ref}' ===")
+        touched_frozen, frozen_cmd_errors = validate_frozen_testset(repo_root, args.base_ref)
+        if frozen_cmd_errors:
+            all_errors.extend(frozen_cmd_errors)
+            for err in frozen_cmd_errors:
+                print(f"  [ERRO] {err}", file=sys.stderr)
+        elif touched_frozen:
+            for frozen_path in touched_frozen:
+                msg = (
+                    f"Arquivo do conjunto de teste congelado modificado ('{frozen_path}'). "
+                    "O ajuste de recall deve ocorrer no conjunto de validação; justifique no PR "
+                    "se for correção de gabarito em fonte oficial."
+                )
+                print(f"  [AVISO] {msg}")
+                if os.getenv("GITHUB_ACTIONS") == "true":
+                    print(f"::warning file={frozen_path}::{msg}")
+                if args.strict_frozen_testset:
+                    all_errors.append(msg)
+        else:
+            print("  [OK] Nenhuma alteração nos arquivos congelados do conjunto de teste.")
+    else:
+        print("\n=== 5. Verificação de conjunto de teste congelado ===")
+        print("  [INFO] --base-ref não informado; checagem ignorada.")
 
     if all_errors:
         print(
