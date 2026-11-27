@@ -199,12 +199,52 @@ def _is_versioned_prompt_path(rel_path: str) -> bool:
     return bool(VERSIONED_PROMPT_PATH_RE.match(normalized))
 
 
-def check_prompt_immutability_from_diff(diff_output: str) -> list[str]:
+def is_status_only_prompt_change(base_yaml_text: str, head_yaml_text: str) -> bool:
+    """Retorna True somente se a única diferença válida no YAML for o campo `status`."""
+    yaml_mod = _require_yaml()
+    try:
+        base_data = yaml_mod.safe_load(base_yaml_text)
+        head_data = yaml_mod.safe_load(head_yaml_text)
+    except yaml_mod.YAMLError:
+        return False
+
+    if not isinstance(base_data, dict) or not isinstance(head_data, dict):
+        return False
+    if head_data.get("status") not in VALID_PROMPT_STATUSES:
+        return False
+    if set(base_data.keys()) != set(head_data.keys()):
+        return False
+    if base_data.get("status") == head_data.get("status"):
+        return False
+
+    base_without_status = {k: v for k, v in base_data.items() if k != "status"}
+    head_without_status = {k: v for k, v in head_data.items() if k != "status"}
+    return base_without_status == head_without_status
+
+
+def _git_show_file(repo_root: Path, ref: str, rel_path: str) -> str | None:
+    proc = subprocess.run(
+        ["git", "show", f"{ref}:{rel_path}"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout
+
+
+def check_prompt_immutability_from_diff(
+    diff_output: str,
+    repo_root: Path | None = None,
+    base_ref: str | None = None,
+) -> list[str]:
     """Avalia a saída de `git diff --name-status` sob a regra de imutabilidade (ADR-006).
 
-    Rejeita qualquer modificação (`M`), deleção (`D`), mudança de tipo (`T`) ou renomeação (`R*`)
-    em arquivos de prompt versionados (`mlops/prompts/*_v*.yaml`). Permite adição (`A`), cópia (`C*`)
-    e alterações em documentação (como `mlops/prompts/README.md`).
+    Rejeita qualquer edição (exceto transição exclusiva do campo `status`), deleção (`D`),
+    mudança de tipo (`T`) ou renomeação (`R*`) em prompts versionados (`mlops/prompts/*_v*.yaml`).
+    Permite adição (`A`), cópia (`C*`) e alterações em documentação (como `mlops/prompts/README.md`).
     """
     errors: list[str] = []
     for raw_line in diff_output.splitlines():
@@ -221,13 +261,26 @@ def check_prompt_immutability_from_diff(diff_output: str) -> list[str]:
 
         if status_kind in {"M", "D", "T"}:
             target_path = parts[1].strip()
-            if _is_versioned_prompt_path(target_path):
-                action = {"M": "modificado", "D": "removido", "T": "alterado"}[status_kind]
-                errors.append(
-                    f"Violação de imutabilidade (ADR-006): o prompt versionado '{target_path}' "
-                    f"foi {action} (status git '{status_code}'). Crie uma nova versão "
-                    f"(ex.: v1.1 ou v2.0) em vez de editar ou remover uma versão existente."
-                )
+            if not _is_versioned_prompt_path(target_path):
+                continue
+
+            if status_kind == "M" and repo_root is not None and base_ref is not None:
+                base_text = _git_show_file(repo_root, base_ref, target_path)
+                head_file = repo_root / target_path
+                if base_text is not None and head_file.is_file():
+                    head_text = head_file.read_text(encoding="utf-8")
+                    if is_status_only_prompt_change(base_text, head_text):
+                        print(
+                            f"  [INFO] Transição exclusiva de `status` permitida em '{target_path}'."
+                        )
+                        continue
+
+            action = {"M": "modificado", "D": "removido", "T": "alterado"}[status_kind]
+            errors.append(
+                f"Violação de imutabilidade (ADR-006): o prompt versionado '{target_path}' "
+                f"foi {action} (status git '{status_code}'). Crie uma nova versão "
+                "(ex.: v1.1 ou v2.0) em vez de editar conteúdo ou remover uma versão existente."
+            )
         elif status_kind == "R":
             old_path = parts[1].strip()
             new_path = parts[2].strip() if len(parts) >= 3 else ""
@@ -235,7 +288,7 @@ def check_prompt_immutability_from_diff(diff_output: str) -> list[str]:
                 errors.append(
                     f"Violação de imutabilidade (ADR-006): o prompt versionado '{old_path}' "
                     f"foi renomeado para '{new_path}' (status git '{status_code}'). Preserve o "
-                    f"arquivo original e adicione uma nova versão (ex.: v1.1 ou v2.0)."
+                    "arquivo original e adicione uma nova versão (ex.: v1.1 ou v2.0)."
                 )
 
     return errors
@@ -258,7 +311,7 @@ def validate_prompt_immutability(repo_root: Path, base_ref: str) -> list[str]:
             "Verifique se o ref base existe e se o checkout possui histórico completo (fetch-depth: 0)."
         ]
 
-    return check_prompt_immutability_from_diff(proc.stdout)
+    return check_prompt_immutability_from_diff(proc.stdout, repo_root=repo_root, base_ref=base_ref)
 
 
 def validate_runtime_manifest(manifest_path: Path) -> list[str]:
