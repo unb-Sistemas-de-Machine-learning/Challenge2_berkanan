@@ -301,6 +301,57 @@ class TestGoldDatasetValidation(unittest.TestCase):
         self.assertIn("fora da faixa", errors[0])
 
 
+class TestFrozenTestsetValidation(unittest.TestCase):
+    def test_detects_frozen_testset_changes_and_ignores_validation_files(self):
+        diff = (
+            "M\tmlops/experiments/testset/conjunto_de_teste.csv\n"
+            "M\tmlops/experiments/testset/recall_gabarito.csv\n"
+            "M\tmlops/experiments/testset/conjunto_validacao.csv\n"
+            "A\tmlops/experiments/testset/gabarito_fotos/P01-P03.csv\n"
+        )
+        touched = gov.check_frozen_testset_from_diff(diff)
+        self.assertEqual(
+            touched,
+            [
+                "mlops/experiments/testset/conjunto_de_teste.csv",
+                "mlops/experiments/testset/recall_gabarito.csv",
+            ],
+        )
+
+    def test_non_frozen_changes_produce_empty_list(self):
+        diff = (
+            "M\tmlops/experiments/testset/conjunto_validacao.csv\n"
+            "A\tmlops/experiments/testset/gabarito_fotos/P01-P03.csv\n"
+        )
+        self.assertEqual(gov.check_frozen_testset_from_diff(diff), [])
+
+    def test_cli_warns_by_default_and_fails_with_strict_flag(self):
+        with (
+            mock.patch.object(gov, "validate_prompt_immutability", return_value=[]),
+            mock.patch.object(
+                gov,
+                "validate_frozen_testset",
+                return_value=(["mlops/experiments/testset/conjunto_de_teste.csv"], []),
+            ),
+        ):
+            self.assertEqual(
+                gov.main(["--repo-root", str(REPO_ROOT), "--base-ref", "origin/main"]),
+                0,
+            )
+            self.assertEqual(
+                gov.main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "--base-ref",
+                        "origin/main",
+                        "--strict-frozen-testset",
+                    ]
+                ),
+                1,
+            )
+
+
 def _cleanup_dir(path: Path) -> None:
     import shutil
 
