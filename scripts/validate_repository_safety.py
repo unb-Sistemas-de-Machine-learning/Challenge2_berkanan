@@ -10,8 +10,11 @@ Verifica automaticamente em CI e localmente:
 
 from __future__ import annotations
 
+import argparse
+import os
 import re
 import subprocess
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -219,3 +222,96 @@ def validate_no_secret_leaks(repo_root: Path) -> list[str]:
         text = raw_bytes.decode("utf-8", errors="replace")
         errors.extend(scan_text_for_secrets(text, rel_path))
     return errors
+
+
+def _emit_error(message: str) -> None:
+    print(f"  [ERRO] {message}", file=sys.stderr)
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print(f"::error::{message}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Valida segurança, LGPD (ausência de segredos e .env) e integridade/imutabilidade "
+            "das migrações SQL."
+        )
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=REPO_ROOT,
+        help="Raiz do repositório a validar (padrão: raiz do projeto).",
+    )
+    parser.add_argument(
+        "--base-ref",
+        type=str,
+        default=None,
+        help="Referência git base (ex.: origin/main) para validar imutabilidade das migrações SQL.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    repo_root = args.repo_root.resolve()
+
+    all_errors: list[str] = []
+
+    print("=== 1. Verificando unicidade de prefixos em migrations/NNN_*.sql ===")
+    prefix_errors = validate_migration_prefixes(repo_root)
+    if prefix_errors:
+        all_errors.extend(prefix_errors)
+        for err in prefix_errors:
+            _emit_error(err)
+    else:
+        print("  [OK] Prefixos numéricos das migrações SQL estão únicos e íntegros.")
+
+    if args.base_ref:
+        print(f"\n=== 2. Verificando imutabilidade das migrações SQL contra '{args.base_ref}' ===")
+        sql_diff_errors = validate_sql_migrations_immutability(repo_root, args.base_ref)
+        if sql_diff_errors:
+            all_errors.extend(sql_diff_errors)
+            for err in sql_diff_errors:
+                _emit_error(err)
+        else:
+            print(
+                f"  [OK] Nenhuma migração SQL existente foi modificada, removida ou renomeada "
+                f"em relação a {args.base_ref}."
+            )
+    else:
+        print("\n=== 2. Verificação de imutabilidade das migrações SQL ===")
+        print("  [INFO] --base-ref não informado; checagem de diff SQL ignorada.")
+
+    print("\n=== 3. Verificando arquivos sensíveis rastreados (.env / chaves privadas) ===")
+    file_errors = validate_forbidden_tracked_files(repo_root)
+    if file_errors:
+        all_errors.extend(file_errors)
+        for err in file_errors:
+            _emit_error(err)
+    else:
+        print("  [OK] Nenhum arquivo sensível (.env real ou chave privada) rastreado pelo Git.")
+
+    print("\n=== 4. Escaneando arquivos textuais em busca de credenciais vazadas ===")
+    secret_errors = validate_no_secret_leaks(repo_root)
+    if secret_errors:
+        all_errors.extend(secret_errors)
+        for err in secret_errors:
+            _emit_error(err)
+    else:
+        print("  [OK] Nenhuma credencial ou chave privada detectada nos arquivos rastreados.")
+
+    if all_errors:
+        print(
+            f"\n[FALHA] Validação de segurança/SQL reprovada com {len(all_errors)} erro(s).",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("\n[SUCESSO] Todas as checagens de segurança, LGPD e migrações SQL passaram.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
