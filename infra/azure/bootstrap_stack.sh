@@ -5,7 +5,7 @@
 # - Sobe PostgreSQL + ChromaDB
 # - Executa migrações SQL idempotentes (migrations/migrate.sh) com SEED=0
 # - Verifica/indexa coleção ChromaDB (scripts/ingest_chroma.py) quando vazia ou FORCE_REINDEX=1
-# - Constrói e sobe backend + caddy (HTTPS automático) e valida /health
+# - Obtém imagem do backend via GHCR (pull com fallback local), sobe backend + caddy (HTTPS automático) e valida /health
 # ==============================================================================
 
 set -euo pipefail
@@ -15,6 +15,8 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 COMPOSE_FILE="${SCRIPT_DIR}/compose.prod.yaml"
 ENV_FILE="${ENV_FILE:-${SCRIPT_DIR}/.env.prod}"
 FORCE_REINDEX="${FORCE_REINDEX:-0}"
+CLI_USE_GHCR="${USE_GHCR-}"
+CLI_BACKEND_IMAGE="${BACKEND_IMAGE-}"
 NETWORK_NAME="challenge2-berkanan-prod_berkanan_internal"
 
 if [[ ! -f "${ENV_FILE}" ]]; then
@@ -27,6 +29,16 @@ set -a
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
 set +a
+
+if [[ -n "${CLI_USE_GHCR}" ]]; then
+  USE_GHCR="${CLI_USE_GHCR}"
+fi
+if [[ -n "${CLI_BACKEND_IMAGE}" ]]; then
+  BACKEND_IMAGE="${CLI_BACKEND_IMAGE}"
+fi
+USE_GHCR="${USE_GHCR:-1}"
+BACKEND_IMAGE="${BACKEND_IMAGE:-ghcr.io/unb-sistemas-de-machine-learning/challenge2-backend:prod}"
+export USE_GHCR BACKEND_IMAGE
 
 if [[ -z "${API_DOMAIN:-}" ]]; then
   echo "[ERRO] API_DOMAIN não pode estar vazio em ${ENV_FILE}." >&2
@@ -60,8 +72,16 @@ docker run --rm \
   postgres:16.4-bookworm \
   bash /work/migrations/migrate.sh
 
-echo "=== 4. Construindo imagem do backend ==="
-"${COMPOSE[@]}" build backend
+if [[ "${USE_GHCR}" == "1" ]]; then
+  echo "=== 4. Obtendo imagem do backend (${BACKEND_IMAGE}) via GHCR ==="
+  if ! "${COMPOSE[@]}" pull backend; then
+    echo "[AVISO] Falha ao baixar ${BACKEND_IMAGE} do GHCR; executando fallback de build local..." >&2
+    "${COMPOSE[@]}" build backend
+  fi
+else
+  echo "=== 4. Construindo imagem do backend localmente (USE_GHCR=${USE_GHCR}) ==="
+  "${COMPOSE[@]}" build backend
+fi
 
 echo "=== 5. Verificando coleção ChromaDB (${CHROMA_COLLECTION:-base_conhecimento_v2}) ==="
 COLLECTION_NAME="${CHROMA_COLLECTION:-base_conhecimento_v2}"
@@ -75,7 +95,7 @@ CHROMA_COUNT="$(
     -e CHROMA_PORT=8000 \
     -e CHROMA_COLLECTION="${COLLECTION_NAME}" \
     -v "${MODEL_CACHE_VOL}:/home/appuser/.cache" \
-    berkanan/challenge2-backend:prod \
+    "${BACKEND_IMAGE}" \
     python3 -c '
 import os, chromadb
 client = chromadb.HttpClient(host=os.environ["CHROMA_HOST"], port=int(os.environ["CHROMA_PORT"]))
@@ -88,9 +108,9 @@ except Exception:
 )"
 
 if [[ "${FORCE_REINDEX}" == "1" || "${CHROMA_COUNT}" -eq 0 ]]; then
-  RECREATE_FLAG=""
+  INGEST_ARGS=(--host chromadb --port 8000 --collection "${COLLECTION_NAME}")
   if [[ "${FORCE_REINDEX}" == "1" ]]; then
-    RECREATE_FLAG="--recreate"
+    INGEST_ARGS+=(--recreate)
   fi
   echo "[INFO] Executando ingestão no ChromaDB (chunks atuais=${CHROMA_COUNT}, force=${FORCE_REINDEX})..."
   docker run --rm \
@@ -108,8 +128,8 @@ if [[ "${FORCE_REINDEX}" == "1" || "${CHROMA_COUNT}" -eq 0 ]]; then
     -v "${MODEL_CACHE_VOL}:/home/appuser/.cache" \
     -v "${REPO_ROOT}/data:/workspace/data:ro" \
     -v "${REPO_ROOT}/scripts:/workspace/scripts:ro" \
-    berkanan/challenge2-backend:prod \
-    python3 /workspace/scripts/ingest_chroma.py --host chromadb --port 8000 --collection "${COLLECTION_NAME}" ${RECREATE_FLAG}
+    "${BACKEND_IMAGE}" \
+    python3 /workspace/scripts/ingest_chroma.py "${INGEST_ARGS[@]}"
 else
   echo "[OK] Coleção '${COLLECTION_NAME}' já possui ${CHROMA_COUNT} trechos indexados."
 fi

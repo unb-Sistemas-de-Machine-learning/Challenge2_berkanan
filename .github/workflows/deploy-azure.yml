@@ -15,6 +15,11 @@ on:
         required: true
         default: false
         type: boolean
+      use_ghcr:
+        description: "Usar imagem pré-compilada do GHCR (docker compose pull) em vez de build na VM"
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -89,13 +94,18 @@ jobs:
           AZURE_DEPLOY_PATH: ${{ secrets.AZURE_DEPLOY_PATH }}
           TARGET_SHA: ${{ github.sha }}
           FORCE_REINDEX_FLAG: ${{ inputs.force_reindex }}
+          USE_GHCR_FLAG: ${{ inputs.use_ghcr }}
         run: |
           FORCE_NUM=0
           if [ "${FORCE_REINDEX_FLAG}" = "true" ]; then
             FORCE_NUM=1
           fi
+          USE_GHCR_NUM=1
+          if [ "${USE_GHCR_FLAG}" = "false" ]; then
+            USE_GHCR_NUM=0
+          fi
           ssh -i ~/.ssh/azure_deploy_key -o StrictHostKeyChecking=accept-new "${AZURE_VM_USER}@${AZURE_VM_HOST}" \
-            "DEPLOY_PATH='${AZURE_DEPLOY_PATH}' TARGET_SHA='${TARGET_SHA}' FORCE_REINDEX='${FORCE_NUM}' bash -s" <<'REMOTE_EOF'
+            "DEPLOY_PATH='${AZURE_DEPLOY_PATH}' TARGET_SHA='${TARGET_SHA}' FORCE_REINDEX='${FORCE_NUM}' USE_GHCR='${USE_GHCR_NUM}' bash -s" <<'REMOTE_EOF'
           set -euo pipefail
           cd "${DEPLOY_PATH}"
           PREV_SHA="$(git rev-parse HEAD)"
@@ -104,14 +114,14 @@ jobs:
           rollback() {
             echo "[ALERTA] Deploy falhou! Executando rollback para ${PREV_SHA}..." >&2
             git checkout -f "${PREV_SHA}"
-            FORCE_REINDEX=0 bash infra/azure/bootstrap_stack.sh || true
+            FORCE_REINDEX=0 USE_GHCR="${USE_GHCR}" bash infra/azure/bootstrap_stack.sh || true
             exit 1
           }
           trap rollback ERR
 
           git fetch --prune origin
           git checkout -f "${TARGET_SHA}"
-          FORCE_REINDEX="${FORCE_REINDEX}" bash infra/azure/bootstrap_stack.sh
+          FORCE_REINDEX="${FORCE_REINDEX}" USE_GHCR="${USE_GHCR}" bash infra/azure/bootstrap_stack.sh
           trap - ERR
           echo "[OK] Deploy concluído no commit ${TARGET_SHA}."
           REMOTE_EOF
