@@ -62,3 +62,21 @@ jobs:
       - name: Executar testes unitários de governança MLOps
         run: |
           (cd mlops/experiments && python3 -m unittest tests/test_mlops_governance.py -v)
+
+      - name: Publicar resumo da governança MLOps no PR
+        if: always()
+        run: |
+          python3 - <<'PY' >> "${GITHUB_STEP_SUMMARY}"
+          import pathlib
+          import yaml
+
+          print("### Governança MLOps (ADR-006)\n")
+          print("| Arquivo | `prompt_id` | Versão | Status |")
+          print("|---|---|---|---|")
+          for path in sorted(pathlib.Path("mlops/prompts").glob("*.yaml")):
+              data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+              print(
+                  f"| `{path.name}` | `{data.get('prompt_id', '-')}` | "
+                  f"`{data.get('version', '-')}` | `{data.get('status', '-')}` |"
+              )
+          PY
