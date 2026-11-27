@@ -422,9 +422,42 @@ curl -X POST http://localhost:8000/api/analyze \
 | `text` | `string \| null` | `null` | Pergunta textual do usuário |
 | `image_base64` | `string \| null` | `null` | Imagem do rótulo comprimida em base64 (pipeline OCR pendente) |
 | `product_ids` | `string[] \| null` | `null` | Identificadores de produtos para comparação |
+| `confirmed_data` | `{tipo_alimento, categoria_produto, values_per_100g, product_name} \| null` | `null` | Dados de rótulo confirmados pelo usuário |
+| `comparison_data` | `{basis, products} \| null` | `null` | Dois produtos validados; cada nutriente contém `value` e `unit` |
 | `user_profile` | `{has_diabetes: bool, has_hypertension: bool}` | `{false, false}` | Condições informadas para emissão de alertas |
 | `enable_verifier` | `bool` | `true` | Liga ou desliga o nó verificador no LangGraph |
 | `verifier_mode` | `"rules"` \| `"llm"` | `"rules"` | Seleciona o verificador determinístico (Config. B) ou o verificador LLM (Config. C) |
+
+Exemplo curto:
+
+```json
+{
+  "request_type": "ocr_analysis",
+  "confirmed_data": {
+    "tipo_alimento": "liquido",
+    "values_per_100g": {"acucares_adicionados_g": 10}
+  },
+  "comparison_data": {
+    "basis": "100g",
+    "products": [
+      {
+        "product_name": "Produto A",
+        "source": "Rótulo confirmado",
+        "validated": true,
+        "nutrients": {"sodium": {"value": 120, "unit": "mg"}}
+      },
+      {
+        "product_name": "Produto B",
+        "source": "Rótulo confirmado",
+        "validated": true,
+        "nutrients": {"sodium": {"value": 80, "unit": "mg"}}
+      }
+    ]
+  }
+}
+```
+
+O formato legado que envia dados confirmados como JSON em `text` continua aceito; texto livre continua sendo tratado como pergunta.
 
 ### Contrato `AnalysisResponse` ([backend/schemas.py](backend/schemas.py))
 
