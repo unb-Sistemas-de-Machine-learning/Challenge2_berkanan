@@ -47,6 +47,39 @@ chmod +x test_api.sh
 
 ## Contrato do agente nutricional
 
+### Campos de `AnalysisRequest`
+
+`confirmed_data` recebe os valores do rótulo confirmados pelo usuário. `comparison_data` recebe a base e os dois produtos validados, com nutrientes no formato `{value, unit}`:
+
+```json
+{
+  "request_type": "ocr_analysis",
+  "confirmed_data": {
+    "tipo_alimento": "liquido",
+    "values_per_100g": {"acucares_adicionados_g": 10}
+  },
+  "comparison_data": {
+    "basis": "100g",
+    "products": [
+      {
+        "product_name": "Produto A",
+        "source": "Rótulo confirmado",
+        "validated": true,
+        "nutrients": {"sodium": {"value": 120, "unit": "mg"}}
+      },
+      {
+        "product_name": "Produto B",
+        "source": "Rótulo confirmado",
+        "validated": true,
+        "nutrients": {"sodium": {"value": 80, "unit": "mg"}}
+      }
+    ]
+  }
+}
+```
+
+Dados confirmados enviados como JSON no campo `text` continuam aceitos por retrocompatibilidade; texto livre continua sendo usado como pergunta.
+
 `AnalysisRequest.verifier_mode` aceita `"rules"` (verificador determinístico, Configuração B)
 ou `"llm"` (verificador Configuração C ligável). `enable_verifier=false` desliga ambos.
 
