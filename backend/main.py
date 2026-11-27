@@ -80,6 +80,24 @@ _TEST_CATEGORY_BY_PREFIX = {
     "G": "G_fora_do_escopo",
 }
 
+_NUTRIENT_ALIASES = {
+    "acucares": "acucares_adicionados_g",
+    "acucares_adicionados": "acucares_adicionados_g",
+    "gorduras_saturadas": "gorduras_saturadas_g",
+    "gorduras_totais": "gorduras_totais_g",
+    "sodio": "sodio_mg",
+    "calorias": "valor_energetico_kcal",
+    "carboidratos": "carboidratos_g",
+    "proteinas": "proteinas_g",
+    "fibra": "fibra_alimentar_g",
+}
+
+
+def _apply_nutrient_aliases(data: dict[str, Any]) -> None:
+    for alias, canonical in _NUTRIENT_ALIASES.items():
+        if alias in data and canonical not in data:
+            data[canonical] = data[alias]
+
 
 def _resolve_verifier_config(request: AnalysisRequest) -> str:
     """Mapeia enable_verifier/verifier_mode para A (sem), B (regras) ou C (LLM)."""
@@ -215,44 +233,64 @@ async def analyze(request: AnalysisRequest):
             timestamp=datetime.now(timezone.utc),
         )
 
+    parsed_confirmation = None
     if request.text:
         try:
             parsed_confirmation = json.loads(request.text)
-            if isinstance(parsed_confirmation, dict):
-                extracted_ocr_data = parsed_confirmation
-                if "values_per_100g" in parsed_confirmation:
-                    extracted_ocr_data = dict(parsed_confirmation["values_per_100g"])
-                    extracted_ocr_data["product_name"] = parsed_confirmation.get("product_name")
-                    extracted_ocr_data["alergicos_contem"] = ""
-                    extracted_ocr_data["alergicos_pode_conter"] = ""
-                    alias_map = {
-                        "acucares": "acucares_adicionados_g",
-                        "acucares_adicionados": "acucares_adicionados_g",
-                        "gorduras_saturadas": "gorduras_saturadas_g",
-                        "gorduras_totais": "gorduras_totais_g",
-                        "sodio": "sodio_mg",
-                        "calorias": "valor_energetico_kcal",
-                        "carboidratos": "carboidratos_g",
-                        "proteinas": "proteinas_g",
-                        "fibra": "fibra_alimentar_g",
-                    }
-                    for alias, canonical in alias_map.items():
-                        if alias in extracted_ocr_data and canonical not in extracted_ocr_data:
-                            extracted_ocr_data[canonical] = extracted_ocr_data[alias]
         except json.JSONDecodeError:
             pass
+
+    if request.confirmed_data is not None:
+        confirmed_data = request.confirmed_data
+        extracted_ocr_data = {
+            key: value
+            for key, value in {
+                "product_name": confirmed_data.product_name,
+                "tipo_alimento": confirmed_data.tipo_alimento,
+                "categoria_produto": confirmed_data.categoria_produto,
+            }.items()
+            if value is not None
+        }
+        if confirmed_data.values_per_100g:
+            extracted_ocr_data.update(confirmed_data.values_per_100g)
+        extracted_ocr_data.update({
+            key: value
+            for key, value in (confirmed_data.model_extra or {}).items()
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+        })
+        _apply_nutrient_aliases(extracted_ocr_data)
+    elif isinstance(parsed_confirmation, dict):
+        extracted_ocr_data = parsed_confirmation
+        if "values_per_100g" in parsed_confirmation:
+            extracted_ocr_data = dict(parsed_confirmation["values_per_100g"])
+            extracted_ocr_data["product_name"] = parsed_confirmation.get("product_name")
+            extracted_ocr_data["tipo_alimento"] = parsed_confirmation.get("tipo_alimento")
+            extracted_ocr_data["categoria_produto"] = parsed_confirmation.get(
+                "categoria_produto"
+            )
+            extracted_ocr_data["alergicos_contem"] = ""
+            extracted_ocr_data["alergicos_pode_conter"] = ""
+            _apply_nutrient_aliases(extracted_ocr_data)
+
+    text_query = request.text
+    if request.confirmed_data is not None and isinstance(parsed_confirmation, dict):
+        text_query = None
 
     initial_state = {
         "request_type": request.request_type,
         "enable_verifier": request.enable_verifier,
         "verifier_mode": request.verifier_mode,
         "llm_calls": 0,
-        "text_query": request.text,
+        "text_query": text_query,
         "image_base64": request.image_base64,
         "product_ids": request.product_ids,
         "user_profile": request.user_profile.model_dump(),
         "extracted_ocr_data": extracted_ocr_data,
-        "comparison_data": None,
+        "comparison_data": (
+            request.comparison_data.model_dump()
+            if request.comparison_data
+            else None
+        ),
         "rag_context": [],
         "draft_response": None,
         "matched_sources": [],
