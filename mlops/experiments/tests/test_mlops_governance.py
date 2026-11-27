@@ -166,6 +166,64 @@ class TestPromptImmutability(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("fetch-depth: 0", errors[0])
 
+    def test_status_only_transition_helper_allows_aprovado_and_obsoleto(self):
+        base_yaml = VALID_PROMPT_YAML.replace('status: "PROPOSTO"', 'status: "EM_BENCHMARK"')
+        for target_status in ("APROVADO", "OBSOLETO"):
+            updated_yaml = base_yaml.replace('status: "EM_BENCHMARK"', f'status: "{target_status}"')
+            self.assertTrue(gov.is_status_only_prompt_change(base_yaml, updated_yaml))
+
+    def test_status_only_transition_helper_blocks_content_or_invalid_status(self):
+        self.assertFalse(gov.is_status_only_prompt_change(VALID_PROMPT_YAML, VALID_PROMPT_YAML))
+        invalid_status = VALID_PROMPT_YAML.replace('status: "PROPOSTO"', 'status: "PRODUCAO"')
+        self.assertFalse(gov.is_status_only_prompt_change(VALID_PROMPT_YAML, invalid_status))
+        changed_template = VALID_PROMPT_YAML.replace('status: "PROPOSTO"', 'status: "APROVADO"').replace(
+            "Responda com base apenas nas fontes oficiais.",
+            "Texto alterado.",
+        )
+        self.assertFalse(gov.is_status_only_prompt_change(VALID_PROMPT_YAML, changed_template))
+
+    def test_real_git_repo_allows_status_only_update_and_blocks_template_edit(self):
+        import subprocess
+
+        tmp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: _cleanup_dir(tmp_root))
+        prompts_dir = tmp_root / "mlops" / "prompts"
+        prompts_dir.mkdir(parents=True)
+        prompt_path = prompts_dir / "sample_agent_v1.0.yaml"
+        prompt_path.write_text(
+            VALID_PROMPT_YAML.replace('status: "PROPOSTO"', 'status: "EM_BENCHMARK"'),
+            encoding="utf-8",
+        )
+
+        def _git(*cmd: str) -> None:
+            subprocess.run(["git", *cmd], cwd=tmp_root, check=True, capture_output=True, text=True)
+
+        _git("init", "-b", "main")
+        _git("config", "user.email", "ci@berkanan.test")
+        _git("config", "user.name", "Berkanan CI")
+        _git("add", ".")
+        _git("commit", "-m", "base prompt")
+        _git("checkout", "-b", "pr-status")
+
+        prompt_path.write_text(
+            VALID_PROMPT_YAML.replace('status: "PROPOSTO"', 'status: "APROVADO"'),
+            encoding="utf-8",
+        )
+        _git("commit", "-am", "mark prompt approved")
+        self.assertEqual(gov.validate_prompt_immutability(tmp_root, "main"), [])
+
+        prompt_path.write_text(
+            VALID_PROMPT_YAML.replace('status: "PROPOSTO"', 'status: "APROVADO"').replace(
+                "Responda com base apenas nas fontes oficiais.",
+                "Alteracao indevida.",
+            ),
+            encoding="utf-8",
+        )
+        _git("commit", "-am", "edit template")
+        errors = gov.validate_prompt_immutability(tmp_root, "main")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("ADR-006", errors[0])
+
 
 class TestRuntimeManifestValidation(unittest.TestCase):
     def _write_manifest(self, content: str) -> Path:
