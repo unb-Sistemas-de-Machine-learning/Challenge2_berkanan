@@ -354,6 +354,107 @@ class TestNutritionalAgentDeterministicTone(unittest.TestCase):
             result["draft_response"].lower(),
         )
 
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch(
+        "nutritional_agent.query_knowledge_base",
+        return_value=[
+            {
+                "text": "Orientação oficial.",
+                "source": "guia_alimentar.pdf",
+                "similarity": 0.9,
+            }
+        ],
+    )
+    @patch("nutritional_agent.socket.create_connection")
+    def test_qa_without_product_queries_rag(
+        self,
+        _create_connection,
+        query_knowledge_base,
+        _get_gemini_model,
+        _get_limits,
+    ):
+        result = nutritional_agent_node({
+            "request_type": "qa",
+            "text_query": "O que recomenda o Guia Alimentar?",
+            "extracted_ocr_data": {},
+            "llm_calls": 0,
+        })
+
+        query_knowledge_base.assert_called_once()
+        self.assertTrue(result["matched_sources"])
+
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch(
+        "nutritional_agent.query_knowledge_base",
+        return_value=[
+            {
+                "text": "Orientação oficial.",
+                "source": "guia_alimentar.pdf",
+                "similarity": 0.9,
+            }
+        ],
+    )
+    @patch("nutritional_agent.socket.create_connection")
+    def test_qa_without_product_has_no_allergen_warning(
+        self,
+        _create_connection,
+        _query_knowledge_base,
+        _get_gemini_model,
+        _get_limits,
+    ):
+        result = nutritional_agent_node({
+            "request_type": "qa",
+            "text_query": "O que recomenda o Guia Alimentar?",
+            "llm_calls": 0,
+        })
+
+        self.assertFalse(any("ALÉRGICOS" in warning for warning in result["warnings"]))
+
+    @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
+    @patch("nutritional_agent._get_gemini_model", return_value=None)
+    @patch("nutritional_agent.query_knowledge_base", return_value=[])
+    @patch("nutritional_agent.socket.create_connection")
+    def test_qa_without_product_and_sources_declares_insufficient_evidence(
+        self,
+        _create_connection,
+        _query_knowledge_base,
+        _get_gemini_model,
+        _get_limits,
+    ):
+        result = nutritional_agent_node({
+            "request_type": "qa",
+            "text_query": "Pergunta sem cobertura.",
+            "extracted_ocr_data": None,
+            "llm_calls": 0,
+        })
+
+        self.assertEqual(result["classification_tone"], "INCONCLUSIVO")
+        self.assertIn(
+            "não há evidência suficiente",
+            result["draft_response"].lower(),
+        )
+
+    @patch("nutritional_agent.query_knowledge_base")
+    def test_ocr_analysis_without_tipo_still_requires_tipo(
+        self,
+        query_knowledge_base,
+    ):
+        result = nutritional_agent_node({
+            "request_type": "ocr_analysis",
+            "extracted_ocr_data": {"acucares_adicionados_g": 10},
+            "llm_calls": 0,
+        })
+
+        query_knowledge_base.assert_not_called()
+        self.assertEqual(result["classification_tone"], "INCONCLUSIVO")
+        self.assertIn(
+            "Tipo do produto (sólido ou líquido) não informado; "
+            "confirme o tipo antes da análise.",
+            result["warnings"],
+        )
+
     @patch("nutritional_agent.database.get_taco_alimento", return_value=[])
     @patch("nutritional_agent.database.get_limites_rotulagem", return_value=[])
     @patch("nutritional_agent._get_gemini_model", return_value=None)
