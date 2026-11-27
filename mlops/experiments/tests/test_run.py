@@ -11,12 +11,16 @@ from benchmark import run, testset
 
 class FakeAPI(BaseHTTPRequestHandler):
     received: list[dict] = []
+    llm_calls: int | None = None
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         FakeAPI.received.append(body)
         text = "Não há evidência suficiente." if body["text"].startswith("Fora") else "Resposta."
-        data = json.dumps({"llm_explanation": text, "matched_sources": [{"source": "guia.pdf"}]}).encode()
+        resp = {"llm_explanation": text, "matched_sources": [{"source": "guia.pdf"}]}
+        if FakeAPI.llm_calls is not None:
+            resp["llm_calls"] = FakeAPI.llm_calls
+        data = json.dumps(resp).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -77,6 +81,41 @@ class TestRun(unittest.TestCase):
         out = run.run(args)
         meta = json.loads((out / "run.json").read_text(encoding="utf-8"))
         self.assertEqual(meta["n_errors"], 3)
+
+    def test_missing_llm_calls_make_run_unofficial(self):
+        FakeAPI.llm_calls = 0
+        try:
+            args = run.parse_args([
+                "--testset", str(self.tmp / "t.csv"), "--configs", "C", "--reps", "1",
+                "--api", f"http://127.0.0.1:{self.server.server_port}", "--out", str(self.tmp / "out"),
+                "--experiment-id", "z", "--llm-model", "gemini-teste",
+            ])
+            meta = json.loads((run.run(args) / "run.json").read_text(encoding="utf-8"))
+        finally:
+            FakeAPI.llm_calls = None
+        # A1 e G1 esperam 2 chamadas e D1 (comparação) espera 1: as três vieram com 0.
+        self.assertEqual(meta["n_sem_llm"], 3)
+        self.assertFalse(meta["official"])
+        self.assertTrue(any("LLM" in m for m in meta["motivos_nao_oficial"]))
+        self.assertEqual(meta["llm_model"], "gemini-teste")
+
+    def test_expected_min_llm_calls(self):
+        self.assertEqual(run.expected_min_llm_calls("qa", "A"), 1)
+        self.assertEqual(run.expected_min_llm_calls("qa", "C"), 2)
+        self.assertEqual(run.expected_min_llm_calls("comparison", "B"), 0)
+        self.assertEqual(run.expected_min_llm_calls("comparison", "C"), 1)
+
+    def test_prompt_versions_reads_yaml(self):
+        d = self.tmp / "prompts"
+        d.mkdir()
+        (d / "agente_v1.0.yaml").write_text(
+            'prompt_id: "agente"\nversion: "v1.0"\nstatus: "EM_BENCHMARK"\nprompt: |\n  texto: x\n',
+            encoding="utf-8",
+        )
+        versions = run.prompt_versions(d)
+        self.assertEqual(versions["agente"]["version"], "v1.0")
+        self.assertEqual(versions["agente"]["status"], "EM_BENCHMARK")
+        self.assertEqual(run.prompt_versions(self.tmp / "nao_existe"), {})
 
 
 if __name__ == "__main__":
