@@ -55,5 +55,36 @@ class TestMigrationSafety(unittest.TestCase):
         self.assertEqual(safety.check_sql_migrations_immutability_from_diff(diff), [])
 
 
+class TestSecretAndFileSafety(unittest.TestCase):
+    def test_detects_real_looking_secrets_constructed_dynamically(self):
+        fake_google_key = "AIza" + "A" * 35
+        fake_gh_token = "ghp_" + "a" * 36
+        fake_sk_key = "sk-" + "b" * 24
+        fake_pem = "-----" + "BEGIN OPENSSH PRIVATE KEY" + "-----"
+
+        for sample in (
+            f"GEMINI_API_KEY={fake_google_key}",
+            f"TOKEN={fake_gh_token}",
+            f"API_KEY={fake_sk_key}",
+            fake_pem,
+        ):
+            findings = safety.scan_text_for_secrets(sample, "backend/config.py")
+            self.assertEqual(len(findings), 1, msg=f"Esperava detecção para: {sample}")
+
+    def test_ignores_example_placeholders(self):
+        sample = "GEMINI_API_KEY=" + "CHANGE_ME_" + "AIza" + "A" * 35
+        self.assertEqual(safety.scan_text_for_secrets(sample, "infra/azure/.env.prod.example"), [])
+
+    def test_forbidden_sensitive_paths_vs_allowed_examples(self):
+        for forbidden in (".env", ".env.local", "infra/azure/.env.prod", "keys/cert.pem", "ssh/id_ed25519"):
+            self.assertTrue(safety.is_forbidden_sensitive_path(forbidden), msg=forbidden)
+
+        for allowed in (".env.example", "infra/azure/.env.prod.example", "backend/main.py"):
+            self.assertFalse(safety.is_forbidden_sensitive_path(allowed), msg=allowed)
+
+    def test_cli_passes_on_real_repository(self):
+        self.assertEqual(safety.main(["--repo-root", str(REPO_ROOT)]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
